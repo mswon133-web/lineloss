@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LINE LOSS 현황관리 프로그램</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -180,6 +180,7 @@ button{font-family:inherit;}
 
 /* ===== KPI strip ===== */
 .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+.kpi-row.kpi-row-6{grid-template-columns:repeat(6,1fr);}
 .kpi{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   padding:14px 16px;position:relative;overflow:hidden;
@@ -193,6 +194,7 @@ button{font-family:inherit;}
 .kpi.c-actual .k-bar{background:var(--green);}
 .kpi.c-loss .k-bar{background:var(--amber);}
 .kpi.c-rate .k-bar{background:var(--red);}
+.kpi.c-uptime .k-bar{background:var(--navy-700);}
 
 /* ===== Form grid (등록) ===== */
 .form-grid{
@@ -233,6 +235,47 @@ button{font-family:inherit;}
 /* ===== Table ===== */
 .table-wrap{overflow-x:auto;border-radius:var(--radius-sm);}
 table{width:100%;border-collapse:collapse;font-size:12.8px;min-width:1080px;}
+
+/* 등록/현황조회 테이블: 열이 많아도(번역명 포함 16열) 가로 스크롤 없이 한 화면에 보이도록
+   컴팩트한 폭/글꼴로 줄이고, 대신 본문에만 세로 스크롤을 둡니다(헤더는 상단에 고정). */
+.table-wrap-record{
+  overflow-x:hidden;
+  max-height:62vh;
+  overflow-y:auto;
+  border:1px solid var(--line);
+}
+.table-wrap-record table.record-table{
+  min-width:0;
+  width:100%;
+  table-layout:fixed;
+  font-size:11.3px;
+}
+.table-wrap-record table.record-table thead th{
+  padding:8px 6px;
+  font-size:10.6px;
+  white-space:normal;
+  word-break:keep-all;
+  line-height:1.25;
+}
+.table-wrap-record table.record-table tbody td{
+  padding:7px 6px;
+  white-space:normal;
+  word-break:break-word;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.table-wrap-record table.record-table .cell-input,
+.table-wrap-record table.record-table .cell-select{
+  font-size:11px;
+  padding:4px 5px;
+  min-width:0;
+}
+@media (max-width: 900px){
+  .table-wrap-record{ overflow-x:auto; }
+  .table-wrap-record table.record-table{ min-width:1080px; table-layout:auto; font-size:12.8px; }
+  .table-wrap-record table.record-table thead th{ white-space:nowrap; font-size:12px; padding:10px 12px; }
+  .table-wrap-record table.record-table tbody td{ white-space:nowrap; padding:9px 12px; }
+}
 thead th{
   background:var(--navy-800);color:#fff;font-weight:600;text-align:left;
   padding:10px 12px;white-space:nowrap;position:sticky;top:0;font-size:12px;letter-spacing:.2px;
@@ -571,7 +614,7 @@ tr.row-editing{background:var(--blue-soft);}
       </div>
 
       <!-- KPI -->
-      <div class="kpi-row" id="kpiRow"></div>
+      <div class="kpi-row kpi-row-6" id="kpiRow"></div>
 
       <!-- 조회/필터 -->
       <div class="card">
@@ -619,12 +662,12 @@ tr.row-editing{background:var(--blue-soft);}
           </div>
           <div style="font-size:11.5px;color:var(--ink-400);margin:-6px 0 14px;" data-i18n="register.filter.hint">시작일시·종료일시는 날짜만 입력해도 되고(시간 비워두면 0시 ~ 24시로 간주), 시각까지 지정하면 그 시간대에 걸쳐 있는 LOSS 건만 조회됩니다.</div>
 
-          <div class="table-wrap">
-            <table>
+          <div class="table-wrap table-wrap-record">
+            <table class="record-table">
               <thead>
                 <tr>
                   <th data-i18n="common.date">일자</th><th data-i18n="common.model">MODEL</th><th data-i18n="common.line">LINE</th><th data-i18n="common.shift">SHIFT</th><th data-i18n="common.procSeq">공정순</th><th data-i18n="common.procName">공정명</th>
-                  <th data-i18n="common.category">구분</th><th data-i18n="common.dept">원인부서</th><th data-i18n="common.issue">문제항목</th><th data-i18n="common.start">시작</th><th data-i18n="common.end">종료</th>
+                  <th data-i18n="common.category">구분</th><th data-i18n="common.dept">원인부서</th><th data-i18n="common.issue">문제항목</th><th data-i18n="common.issueTrans">번역명</th><th data-i18n="common.start">시작</th><th data-i18n="common.end">종료</th>
                   <th data-i18n="common.stopMinutes">정지시간(분)</th><th data-i18n="common.lossRate">LOSS율</th><th data-i18n="common.note">특이사항</th><th style="text-align:center;" data-i18n="common.manage">관리</th>
                 </tr>
               </thead>
@@ -892,11 +935,19 @@ tr.row-editing{background:var(--blue-soft);}
             </div>
           </div>
           <div class="card-body" style="padding-top:14px;">
-            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 2fr auto auto;margin-bottom:14px;">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1.5fr 1.5fr auto auto auto;margin-bottom:14px;">
               <div class="f-field"><label data-i18n="common.model">MODEL</label><select id="add-issue-model"></select></div>
               <div class="f-field"><label data-i18n="master.issue.procSeqLabel">관련 공정순</label><select id="add-issue-procseq"><option value="" data-i18n="master.issue.procSeqAll">전체 공정 공통</option></select></div>
               <div class="f-field"><label data-i18n="master.issue.catLabel">관련 구분</label><select id="add-issue-cat"></select></div>
-              <div class="f-field"><label data-i18n="master.issue.nameLabel">문제항목명</label><input type="text" id="add-issue-name" placeholder="예) 납땜기 고장" data-i18n-ph="master.issue.namePh"></div>
+              <div class="f-field"><label data-i18n="master.issue.nameLabel">문제항목명</label><input type="text" id="add-issue-nametrans" placeholder="예) 납땜기 고장" data-i18n-ph="master.issue.nameTransPh"></div>
+              <div class="f-field"><label data-i18n="master.issue.nameTransLabel">번역명 (선택)</label><input type="text" id="add-issue-name" placeholder="예) Máy hàn bị hỏng" data-i18n-ph="master.issue.namePh"></div>
+              <div class="f-field" style="justify-content:flex-end;">
+                <label>&nbsp;</label>
+                <button class="btn btn-sm" id="btnAutoTransIssue" type="button" style="justify-content:center;white-space:nowrap;" title="문제항목명(베트남어)을 한국어로 자동번역하여 번역명에 채웁니다" data-i18n="master.issue.autoTrans">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M5 8l6 6"></path><path d="M4 14l6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="M22 22l-5-10-5 10"></path><path d="M14 18h6"></path></svg>
+                  자동번역
+                </button>
+              </div>
               <div class="f-field" style="justify-content:flex-end;">
                 <label>&nbsp;</label>
                 <button class="btn" id="btnCancelIssueEdit" style="display:none;justify-content:center;" data-i18n="common.cancel">취소</button>
@@ -908,7 +959,7 @@ tr.row-editing{background:var(--blue-soft);}
             </div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th style="width:120px;" data-i18n="common.model">MODEL</th><th style="width:100px;" data-i18n="common.procSeq">공정순</th><th style="width:100px;" data-i18n="common.category">구분</th><th data-i18n="master.issue.nameLabel">문제항목명</th><th style="width:110px;text-align:center;" data-i18n="common.manage">관리</th></tr></thead>
+                <thead><tr><th style="width:120px;" data-i18n="common.model">MODEL</th><th style="width:100px;" data-i18n="common.procSeq">공정순</th><th style="width:100px;" data-i18n="common.category">구분</th><th data-i18n="master.issue.nameTransLabel">번역명 (선택)</th><th data-i18n="master.issue.nameLabel">문제항목명</th><th style="width:110px;text-align:center;" data-i18n="common.manage">관리</th></tr></thead>
                 <tbody id="tbl-issue"></tbody>
               </table>
             </div>
@@ -1101,7 +1152,7 @@ tr.row-editing{background:var(--blue-soft);}
     <div class="table-wrap" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;margin-bottom:16px;">
       <table style="min-width:0;font-size:12.5px;">
         <thead>
-          <tr><th data-i18n="common.model">MODEL</th><th data-i18n="common.procSeq">공정순</th><th data-i18n="common.category">구분</th><th data-i18n="master.issue.nameLabel">문제항목명</th></tr>
+          <tr><th data-i18n="common.model">MODEL</th><th data-i18n="common.procSeq">공정순</th><th data-i18n="common.category">구분</th><th data-i18n="master.issue.nameLabel">문제항목명</th><th data-i18n="master.issue.nameTransLabel">번역명 (선택)</th></tr>
         </thead>
         <tbody id="importIssuePreviewBody"></tbody>
       </table>
@@ -1150,7 +1201,7 @@ var I18N = {
     "footer.saving": "저장 중...",
 
     "common.model": "MODEL", "common.line": "LINE", "common.shift": "SHIFT",
-    "common.category": "구분", "common.dept": "원인부서", "common.issue": "문제항목",
+    "common.category": "구분", "common.dept": "원인부서", "common.issue": "문제항목", "common.issueTrans": "번역명",
     "common.procSeq": "공정순", "common.procName": "공정명",
     "common.date": "일자", "common.start": "시작", "common.end": "종료",
     "common.stopMinutes": "정지시간(분)", "common.stopMinutesShort": "정지(분)",
@@ -1195,6 +1246,7 @@ var I18N = {
     "register.kpi.avgLoss": "건당 평균 정지시간",
     "register.kpi.lineCount": "발생 LINE 수",
     "register.kpi.topCat": "최다 발생 구분",
+    "register.kpi.weightedLossRate": "LOSS율",
     "register.required": "일자, LINE, SHIFT, 구분은 필수 입력 항목입니다.",
     "register.added": "등록되었습니다.",
     "register.updated": "수정되었습니다.",
@@ -1248,7 +1300,9 @@ var I18N = {
     "master.process.seqPh": "예) M1", "master.process.namePh": "예) UNIT_MIC납땜_밧데리 조립",
     "master.issue.procSeqLabel": "관련 공정순", "master.issue.procSeqAll": "전체 공정 공통",
     "master.issue.catLabel": "관련 구분", "master.issue.nameLabel": "문제항목명",
-    "master.issue.namePh": "예) 납땜기 고장",
+    "master.issue.namePh": "예) Máy hàn bị hỏng",
+    "master.issue.nameTransLabel": "번역명 (선택)", "master.issue.nameTransPh": "예) 납땜기 고장",
+    "master.issue.autoTrans": "자동번역", "master.issue.autoTransing": "번역 중...",
     "master.issueImport.title": "문제항목 엑셀 업로드 미리보기",
     "master.import.title": "기본정보 엑셀 업로드 미리보기",
     "master.import.summaryPrefix": "가져올 수 있는 항목: ",
@@ -1317,6 +1371,7 @@ var I18N = {
     "toast.processAlreadyExists": "이미 등록된 공정입니다.",
     "toast.processAdded": "공정이 추가되었습니다.",
     "toast.issueNameRequired": "문제항목명을 입력해 주세요.",
+    "toast.autoTransFailed": "자동번역에 실패했습니다. 직접 입력해 주세요.",
     "toast.issueAlreadyExists": "이미 등록된 문제항목입니다.",
     "toast.issueAdded": "문제항목이 추가되었습니다.",
     "toast.masterReset": "기본정보가 초기화되었습니다.",
@@ -1410,7 +1465,7 @@ var I18N = {
     "footer.saving": "Saving...",
 
     "common.model": "MODEL", "common.line": "LINE", "common.shift": "SHIFT",
-    "common.category": "Category", "common.dept": "Dept.", "common.issue": "Issue",
+    "common.category": "Category", "common.dept": "Dept.", "common.issue": "Issue", "common.issueTrans": "Translation",
     "common.procSeq": "Proc. Seq", "common.procName": "Process Name",
     "common.date": "Date", "common.start": "Start", "common.end": "End",
     "common.stopMinutes": "Stop Time (min)", "common.stopMinutesShort": "Stop (min)",
@@ -1455,6 +1510,7 @@ var I18N = {
     "register.kpi.avgLoss": "Avg. Stop Time / Entry",
     "register.kpi.lineCount": "LINEs Affected",
     "register.kpi.topCat": "Most Frequent Category",
+    "register.kpi.weightedLossRate": "LOSS Rate",
     "register.required": "Date, LINE, SHIFT, and Category are required.",
     "register.added": "Added.",
     "register.updated": "Updated.",
@@ -1508,7 +1564,9 @@ var I18N = {
     "master.process.seqPh": "e.g. M1", "master.process.namePh": "e.g. UNIT_MIC Soldering_Battery Assembly",
     "master.issue.procSeqLabel": "Related Proc. Seq", "master.issue.procSeqAll": "Common to all processes",
     "master.issue.catLabel": "Related Category", "master.issue.nameLabel": "Issue Name",
-    "master.issue.namePh": "e.g. Solder machine failure",
+    "master.issue.namePh": "e.g. Máy hàn bị hỏng",
+    "master.issue.nameTransLabel": "Translation (optional)", "master.issue.nameTransPh": "e.g. Solder machine failure",
+    "master.issue.autoTrans": "Auto-translate", "master.issue.autoTransing": "Translating...",
     "master.issueImport.title": "Issue Excel Upload Preview",
     "master.import.title": "Master Data Excel Upload Preview",
     "master.import.summaryPrefix": "Importable items: ",
@@ -1577,6 +1635,7 @@ var I18N = {
     "toast.processAlreadyExists": "This process is already registered.",
     "toast.processAdded": "Process added.",
     "toast.issueNameRequired": "Please enter the issue name.",
+    "toast.autoTransFailed": "Auto-translate failed. Please enter it manually.",
     "toast.issueAlreadyExists": "This issue is already registered.",
     "toast.issueAdded": "Issue added.",
     "toast.masterReset": "Master data has been reset.",
@@ -1670,7 +1729,7 @@ var I18N = {
     "footer.saving": "Đang lưu...",
 
     "common.model": "MODEL", "common.line": "LINE", "common.shift": "SHIFT (Ca)",
-    "common.category": "Phân loại", "common.dept": "Bộ phận", "common.issue": "Vấn đề",
+    "common.category": "Phân loại", "common.dept": "Bộ phận", "common.issue": "Vấn đề", "common.issueTrans": "Bản dịch",
     "common.procSeq": "Thứ tự CT", "common.procName": "Tên công trình",
     "common.date": "Ngày", "common.start": "Bắt đầu", "common.end": "Kết thúc",
     "common.stopMinutes": "Thời gian dừng (phút)", "common.stopMinutesShort": "Dừng (phút)",
@@ -1715,6 +1774,7 @@ var I18N = {
     "register.kpi.avgLoss": "TB thời gian dừng/mục",
     "register.kpi.lineCount": "Số LINE phát sinh",
     "register.kpi.topCat": "Phân loại xảy ra nhiều nhất",
+    "register.kpi.weightedLossRate": "Tỷ lệ LOSS",
     "register.required": "Ngày, LINE, SHIFT, Phân loại là các mục bắt buộc.",
     "register.added": "Đã đăng ký.",
     "register.updated": "Đã chỉnh sửa.",
@@ -1769,6 +1829,8 @@ var I18N = {
     "master.issue.procSeqLabel": "Thứ tự CT liên quan", "master.issue.procSeqAll": "Chung cho tất cả công trình",
     "master.issue.catLabel": "Phân loại liên quan", "master.issue.nameLabel": "Tên vấn đề",
     "master.issue.namePh": "VD) Máy hàn bị hỏng",
+    "master.issue.nameTransLabel": "Tên dịch (tùy chọn)", "master.issue.nameTransPh": "VD) 납땜기 고장",
+    "master.issue.autoTrans": "Dịch tự động", "master.issue.autoTransing": "Đang dịch...",
     "master.issueImport.title": "Xem trước tải lên Excel - Vấn đề",
     "master.import.title": "Xem trước tải lên Excel - Dữ liệu cơ bản",
     "master.import.summaryPrefix": "Các mục có thể nhập: ",
@@ -1837,6 +1899,7 @@ var I18N = {
     "toast.processAlreadyExists": "Công trình này đã được đăng ký.",
     "toast.processAdded": "Đã thêm công trình.",
     "toast.issueNameRequired": "Vui lòng nhập tên vấn đề.",
+    "toast.autoTransFailed": "Dịch tự động không thành công. Vui lòng nhập thủ công.",
     "toast.issueAlreadyExists": "Vấn đề này đã được đăng ký.",
     "toast.issueAdded": "Đã thêm vấn đề.",
     "toast.masterReset": "Dữ liệu cơ bản đã được đặt lại.",
@@ -2009,17 +2072,49 @@ on("langSelect","change", function(){ setLanguage(this.value); });
    - 호환성: 구형 브라우저(옵셔널 체이닝 미지원 등)에서도 동작하도록 작성되었습니다.
    ========================================================================= */
 
-/* ---- 0. 전역 에러 가시화: 버튼이 "조용히 죽는" 상황을 방지 ---- */
+/* ---- 0. 전역 에러 가시화: 버튼이 "조용히 죽는" 상황을 방지 ----
+   (진단용: 가능한 한 상세 정보를 함께 표시. "Script error."만 뜨는 경우는
+    교차 출처(cross-origin) 스크립트에서 브라우저가 보안상 상세 내용을 가린 것이며,
+    이 문구 자체가 원인을 알려주지는 않으므로 추가 정보를 같이 노출합니다.) ---- */
 window.addEventListener("error", function(e){
   try{
     var bar = document.getElementById("globalErrorBar");
     if(!bar){
       bar = document.createElement("div");
       bar.id = "globalErrorBar";
-      bar.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c5402e;color:#fff;padding:10px 16px;font-size:13px;z-index:99999;font-family:sans-serif;";
+      bar.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c5402e;color:#fff;padding:10px 16px;font-size:12px;z-index:99999;font-family:sans-serif;white-space:pre-wrap;word-break:break-all;max-height:45vh;overflow:auto;";
       document.body.appendChild(bar);
     }
-    bar.textContent = "프로그램 오류가 발생했습니다: " + (e && e.message ? e.message : "알 수 없는 오류") + " (페이지를 새로고침해 보세요. 저장된 데이터는 유지됩니다.)";
+    var msg = (e && e.message) ? e.message : "알 수 없는 오류";
+    var loc = "";
+    if(e){
+      var fn = e.filename ? String(e.filename) : "";
+      if(fn) loc = " | 위치: " + fn + (e.lineno ? (":" + e.lineno + (e.colno ? ":" + e.colno : "")) : "");
+    }
+    var stack = "";
+    if(e && e.error && e.error.stack){ stack = "\n스택: " + String(e.error.stack).slice(0, 800); }
+    var hint = "";
+    if(msg.indexOf("Script error") !== -1){
+      hint = "\n(참고: 'Script error.'는 외부 도메인 스크립트에서 발생한 오류의 상세 내용을 브라우저가 보안상 숨겼을 때 나타납니다. 보통 location.protocol=" + (window.location ? window.location.protocol : "?") + " 환경에서 외부 CDN(Firebase/xlsx) 로딩 또는 실행이 origin 제약으로 막힌 경우입니다.)";
+    }
+    bar.textContent = "프로그램 오류가 발생했습니다: " + msg + loc + stack + hint + "\n(페이지를 새로고침해 보세요. 저장된 데이터는 유지됩니다.)";
+    console.error("[LineLoss] 전역 오류 캡처:", e);
+  }catch(_ignored){}
+});
+window.addEventListener("unhandledrejection", function(e){
+  try{
+    var bar = document.getElementById("globalErrorBar");
+    if(!bar){
+      bar = document.createElement("div");
+      bar.id = "globalErrorBar";
+      bar.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c5402e;color:#fff;padding:10px 16px;font-size:12px;z-index:99999;font-family:sans-serif;white-space:pre-wrap;word-break:break-all;max-height:45vh;overflow:auto;";
+      document.body.appendChild(bar);
+    }
+    var reason = e && e.reason;
+    var msg = "처리되지 않은 비동기 오류(Promise rejection): " + (reason && reason.message ? reason.message : String(reason));
+    var stack = (reason && reason.stack) ? ("\n스택: " + String(reason.stack).slice(0, 800)) : "";
+    bar.textContent = msg + stack + "\n(페이지를 새로고침해 보세요. 저장된 데이터는 유지됩니다.)";
+    console.error("[LineLoss] 처리되지 않은 Promise 거부:", reason);
   }catch(_ignored){}
 });
 
@@ -2358,6 +2453,100 @@ function escapeHtml(str){
   });
 }
 
+/* ---- 엑셀 내보내기 디자인 헬퍼 ----
+   화면(CSS)에서 쓰는 색상을 엑셀 셀 스타일(xlsx-js-style)로 동일하게 재현합니다.
+   xlsx-js-style이 로드되지 못한 경우(외부 스크립트 차단 등)에는 스타일 적용을 건너뛰고
+   기존처럼 무색 데이터로만 저장되도록 모든 호출부에서 안전하게 처리합니다. */
+var XLSX_DESIGN = {
+  headerFill: "1C2A4A",   // --navy-700
+  headerFont: "FFFFFF",
+  bandFill: "F5F6FA",     // --bg (짝수행 밝은 줄무늬)
+  borderColor: "E3E7F0",  // --line
+  titleFill: "16213D",    // --navy-800
+  titleFont: "FFFFFF",
+  badge: {
+    "설비": { fill: "E7EEF9", font: "2D62A8" },
+    "품질": { fill: "F3E8FB", font: "7C3AED" },
+    "자재": { fill: "E4F5EC", font: "1F8A5C" },
+    "작업자": { fill: "FDEEE2", font: "E8762C" },
+    "기타": { fill: "EEF1F7", font: "6B7390" }
+  },
+  lossRate: {
+    danger: { font: "C5402E" },  // --red, 화면에서 LOSS율 강조와 동일
+    normal: { font: "16213D" }
+  }
+};
+
+function xlsxBorderAll(colorHex){
+  var side = { style: "thin", color: { rgb: colorHex } };
+  return { top: side, bottom: side, left: side, right: side };
+}
+
+// 헤더 행 전체에 짙은 배경 + 흰색 굵은 글씨를 입힙니다.
+function styleExcelHeaderRow(ws, headerRowIndex, colCount){
+  if(!ws || typeof XLSX === "undefined") return;
+  for(var c=0;c<colCount;c++){
+    var addr = XLSX.utils.encode_cell({ r: headerRowIndex, c: c });
+    if(!ws[addr]) ws[addr] = { t: "s", v: "" };
+    ws[addr].s = {
+      fill: { fgColor: { rgb: XLSX_DESIGN.headerFill } },
+      font: { color: { rgb: XLSX_DESIGN.headerFont }, bold: true, sz: 11 },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true },
+      border: xlsxBorderAll(XLSX_DESIGN.borderColor)
+    };
+  }
+}
+
+// 데이터 영역에 옅은 줄무늬 배경 + 테두리를 입혀 화면의 표 느낌을 재현합니다.
+function styleExcelDataRows(ws, startRow, endRow, colCount){
+  if(!ws || typeof XLSX === "undefined") return;
+  for(var r=startRow;r<=endRow;r++){
+    var isBand = (r - startRow) % 2 === 1;
+    for(var c=0;c<colCount;c++){
+      var addr = XLSX.utils.encode_cell({ r: r, c: c });
+      if(!ws[addr]) ws[addr] = { t: "s", v: "" };
+      var existing = ws[addr].s || {};
+      ws[addr].s = Object.assign({}, existing, {
+        fill: existing.fill || (isBand ? { fgColor: { rgb: XLSX_DESIGN.bandFill } } : undefined),
+        border: xlsxBorderAll(XLSX_DESIGN.borderColor),
+        alignment: Object.assign({ vertical: "center" }, existing.alignment || {})
+      });
+    }
+  }
+}
+
+// 특정 셀에 "구분(category)" 배지와 동일한 색을 입힙니다.
+function styleExcelCategoryCell(ws, rowIndex, colIndex, categoryValue){
+  if(!ws || typeof XLSX === "undefined") return;
+  var palette = XLSX_DESIGN.badge[categoryValue];
+  if(!palette) return;
+  var addr = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+  if(!ws[addr]) return;
+  var existing = ws[addr].s || {};
+  ws[addr].s = Object.assign({}, existing, {
+    fill: { fgColor: { rgb: palette.fill } },
+    font: Object.assign({ bold: true, color: { rgb: palette.font } }, existing.font || {}),
+    alignment: Object.assign({ horizontal: "center", vertical: "center" }, existing.alignment || {})
+  });
+}
+
+// LOSS율처럼 화면에서 굵게+강조색으로 보이는 숫자 셀에 동일한 느낌을 입힙니다.
+function styleExcelEmphasisCell(ws, rowIndex, colIndex, colorHex){
+  if(!ws || typeof XLSX === "undefined") return;
+  var addr = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+  if(!ws[addr]) return;
+  var existing = ws[addr].s || {};
+  ws[addr].s = Object.assign({}, existing, {
+    font: Object.assign({ bold: true, color: { rgb: colorHex || XLSX_DESIGN.lossRate.normal.font } }, existing.font || {})
+  });
+}
+
+// 열 너비를 화면 비율과 비슷하게 지정합니다(문자 단위 근사치).
+function setExcelColWidths(ws, widths){
+  if(!ws) return;
+  ws["!cols"] = widths.map(function(w){ return { wch: w }; });
+}
+
 /* ---- 네비게이션 ---- */
 (function bindNav(){
   var items = document.querySelectorAll(".nav-item");
@@ -2473,10 +2662,23 @@ function getIssueOptions(model, category, procSeq){
     var seqOk = !procSeq || !i.procSeq || i.procSeq===procSeq;
     return catOk && seqOk;
   });
-  if(byAll.length) return byAll.map(function(i){return i.name;});
+  if(byAll.length) return byAll.map(function(i){return i.nameTrans || i.name;});
   var byCat = pool.filter(function(i){ return !category || i.category===category; });
-  if(byCat.length) return byCat.map(function(i){return i.name;});
-  return pool.map(function(i){return i.name;});
+  if(byCat.length) return byCat.map(function(i){return i.nameTrans || i.name;});
+  return pool.map(function(i){return i.nameTrans || i.name;});
+}
+
+// 등록된 문제항목명(issue)에 대응하는 번역명(nameTrans)을 master.issues에서 찾아 반환합니다.
+// 동일 이름이 모델/구분별로 여러 개 등록되어 있을 수 있으므로, model/category/procSeq가 일치하는 항목을 우선합니다.
+function getIssueTrans(issueName, model, category, procSeq){
+  if(!issueName) return "";
+  var candidates = master.issues.filter(function(i){ return (i.nameTrans||i.name) === issueName; });
+  if(!candidates.length) return "";
+  var exact = candidates.find(function(i){
+    return (i.model||"")===(model||"") && (i.category||"")===(category||"") && (i.procSeq||"")===(procSeq||"");
+  });
+  if(exact) return exact.name || "";
+  return candidates[0].name || "";
 }
 
 function calcStopMinutes(start, end){
@@ -2544,6 +2746,7 @@ function bindRowWidgets(rowEl){
   var categorySel = rowEl.querySelector('[data-field="category"]');
   var shiftSel = rowEl.querySelector('[data-field="shift"]');
   var issueSel = rowEl.querySelector('[data-field="issue"]');
+  var issueTransReadout = rowEl.querySelector('[data-field="issueTransReadout"]');
   var startInput = rowEl.querySelector('[data-field="start"]');
   var endInput = rowEl.querySelector('[data-field="end"]');
   var stopReadout = rowEl.querySelector('[data-field="stopReadout"]');
@@ -2586,13 +2789,24 @@ function bindRowWidgets(rowEl){
     });
   }
 
+  function updateIssueTransReadout(){
+    if(!issueTransReadout) return;
+    var model = modelSel ? modelSel.value : "";
+    var cat = categorySel ? categorySel.value : "";
+    var seq = procSeqSel ? procSeqSel.value : "";
+    var issueVal = issueSel ? issueSel.value : "";
+    issueTransReadout.textContent = getIssueTrans(issueVal, model, cat, seq);
+  }
+
   function refreshIssueByContext(){
     if(!issueSel) return;
     var model = modelSel ? modelSel.value : "";
     var cat = categorySel ? categorySel.value : "";
     var seq = procSeqSel ? procSeqSel.value : "";
     refillSelect(issueSel, getIssueOptions(model, cat, seq), issueSel.value);
+    updateIssueTransReadout();
   }
+  if(issueSel) issueSel.addEventListener("change", updateIssueTransReadout);
 
   // MODEL 변경 → 해당 모델의 LINE / 공정순 / 공정명 / 문제항목 모두 갱신
   if(modelSel){
@@ -2663,6 +2877,7 @@ function buildNewRowHtml(){
     "<td>" + buildSelectHtml("cell-select", "category", getCategoryOptions(), "") + "</td>" +
     "<td>" + buildSelectHtml("cell-select", "dept", getDeptOptions(), "") + "</td>" +
     "<td>" + buildSelectHtml("cell-select", "issue", getIssueOptions("","",""), "") + "</td>" +
+    "<td><span class=\"cell-readout-mini\" data-field=\"issueTransReadout\"></span></td>" +
     "<td><input type=\"time\" class=\"cell-input cell-time\" data-field=\"start\"></td>" +
     "<td><input type=\"time\" class=\"cell-input cell-time\" data-field=\"end\"></td>" +
     "<td><span class=\"cell-readout-mini\" data-field=\"stopReadout\" data-value=\"0\">0" + t("common.unit.minute") + "</span></td>" +
@@ -2751,6 +2966,7 @@ function buildEditRowHtml(r){
     "<td>" + buildSelectHtml("cell-select", "category", getCategoryOptions(), r.category) + "</td>" +
     "<td>" + buildSelectHtml("cell-select", "dept", getDeptOptions(), r.dept) + "</td>" +
     "<td>" + buildSelectHtml("cell-select", "issue", getIssueOptions(r.model, r.category, r.procSeq), r.issue) + "</td>" +
+    "<td><span class=\"cell-readout-mini\" data-field=\"issueTransReadout\">" + escapeHtml(getIssueTrans(r.issue, r.model, r.category, r.procSeq)) + "</span></td>" +
     "<td><input type=\"time\" class=\"cell-input cell-time\" data-field=\"start\" value=\"" + escapeHtml(r.start) + "\"></td>" +
     "<td><input type=\"time\" class=\"cell-input cell-time\" data-field=\"end\" value=\"" + escapeHtml(r.end) + "\"></td>" +
     "<td><span class=\"cell-readout-mini\" data-field=\"stopReadout\" data-value=\"" + (r.stopMinutes||0) + "\">" + (r.stopMinutes||0) + t("common.unit.minute") + "</span></td>" +
@@ -2866,14 +3082,15 @@ function renderFilterOptions(){
   fillSelect($("ft-category"), master.categories, true);
 }
 ["ft-dateFrom","ft-dateTo","ft-model","ft-line","ft-shift","ft-category","ft-keyword"].forEach(function(id){
-  on(id,"input", renderTable);
-  on(id,"change", renderTable);
+  on(id,"input", function(){ renderTable(); renderKpi(); });
+  on(id,"change", function(){ renderTable(); renderKpi(); });
 });
 on("btnResetFilter","click", function(){
   $("ft-dateFrom").value=""; $("ft-dateTo").value="";
   $("ft-model").value=""; $("ft-line").value=""; $("ft-shift").value=""; $("ft-category").value="";
   $("ft-keyword").value="";
   renderTable();
+  renderKpi();
 });
 
 function getFilteredRecords(){
@@ -2941,6 +3158,7 @@ function renderTable(){
       "<td>" + (r.category ? ('<span class="badge b-' + escapeHtml(r.category) + '">' + escapeHtml(r.category) + '</span>') : "") + "</td>" +
       "<td>" + escapeHtml(r.dept) + "</td>" +
       "<td>" + escapeHtml(r.issue) + "</td>" +
+      "<td>" + escapeHtml(getIssueTrans(r.issue, r.model, r.category, r.procSeq)) + "</td>" +
       "<td>" + escapeHtml(r.start) + "</td>" +
       "<td>" + escapeHtml(r.end) + "</td>" +
       '<td class="cell-num">' + (r.stopMinutes || 0) + "</td>" +
@@ -2966,8 +3184,9 @@ function renderTable(){
 }
 
 function renderKpi(){
-  var filtered = getFilteredRecords();
-  var list = filtered.length ? filtered : records;
+  // 누적 현황 카드는 항상 "현황조회"에서 적용한 필터 결과를 기준으로 산출합니다.
+  // (필터 결과가 0건이어도 전체 데이터로 되돌리지 않고 0건 그대로 표시합니다.)
+  var list = getFilteredRecords();
   var totalCount = list.length;
   var totalLoss = 0;
   for(var i=0;i<list.length;i++){ totalLoss += (list[i].stopMinutes||0); }
@@ -2985,10 +3204,34 @@ function renderKpi(){
     if(topCatMap[key2] > topCatCount){ topCat = key2; topCatCount = topCatMap[key2]; }
   }
 
+  // LOSS율(가중평균, %) = 가용시간이 설정된 레코드들의 (정지시간 합 / 가용시간 합) × 100
+  // 가용시간이 설정되지 않은 레코드는 계산에서 제외합니다(분모를 알 수 없으므로).
+  var availSum = 0, stopSumForAvail = 0, availKnownCount = 0;
+  for(var i4=0;i4<list.length;i4++){
+    var r4 = list[i4];
+    var avail4 = findAvailMinutes(r4.model, r4.line, r4.shift, r4.date);
+    if(avail4 && avail4 > 0){
+      availSum += avail4;
+      stopSumForAvail += (r4.stopMinutes||0);
+      availKnownCount++;
+    }
+  }
+  var weightedLossRate = null;
+  if(availSum > 0){
+    weightedLossRate = stopSumForAvail / availSum * 100;
+  }
+  var weightedLossRateValHtml = weightedLossRate === null
+    ? t("common.dash")
+    : weightedLossRate.toFixed(1);
+  var weightedLossRateTitle = (availKnownCount < totalCount)
+    ? ' title="' + escapeHtml(totalCount - availKnownCount + "건은 가용시간 미설정으로 LOSS율 계산에서 제외되었습니다.") + '"'
+    : '';
+
   $("kpiRow").innerHTML =
     '<div class="kpi c-total"><div class="k-bar"></div><div class="k-label">' + t("register.kpi.total") + '</div><div class="k-val">' + totalCount + '<span class="k-unit">' + t("common.unit.count") + '</span></div></div>' +
     '<div class="kpi c-loss"><div class="k-bar"></div><div class="k-label">' + t("register.kpi.totalLoss") + '</div><div class="k-val">' + totalLoss + '<span class="k-unit">' + t("common.unit.minute") + '</span></div></div>' +
     '<div class="kpi c-rate"><div class="k-bar"></div><div class="k-label">' + t("register.kpi.avgLoss") + '</div><div class="k-val">' + avgLoss + '<span class="k-unit">' + t("common.unit.minute") + '</span></div></div>' +
+    '<div class="kpi c-uptime"' + weightedLossRateTitle + '><div class="k-bar"></div><div class="k-label">' + t("register.kpi.weightedLossRate") + '</div><div class="k-val">' + weightedLossRateValHtml + '<span class="k-unit">' + (weightedLossRate === null ? "" : "%") + '</span></div></div>' +
     '<div class="kpi c-plan"><div class="k-bar"></div><div class="k-label">' + t("register.kpi.lineCount") + '</div><div class="k-val">' + lineCount + '<span class="k-unit">' + t("master.avail.lineUnit") + '</span></div></div>' +
     '<div class="kpi c-actual"><div class="k-bar"></div><div class="k-label">' + t("register.kpi.topCat") + '</div><div class="k-val" style="font-size:17px;">' + (topCat || t("common.dash")) + '<span class="k-unit">' + (topCat ? (topCatCount+t("common.unit.count")) : "") + '</span></div></div>';
 }
@@ -3004,13 +3247,31 @@ on("btnExportExcel","click", function(){
     var rate = calcRecordLossRate(r.model, r.line, r.shift, r.date, r.stopMinutes||0);
     return {
       "일자": r.date, "MODEL": r.model, "LINE": r.line, "SHIFT": r.shift, "공정순": r.procSeq, "공정명": r.procName,
-      "구분": r.category, "원인부서": r.dept, "문제항목": r.issue,
+      "구분": r.category, "원인부서": r.dept, "문제항목": r.issue, "번역명": getIssueTrans(r.issue, r.model, r.category, r.procSeq),
       "시작시간": r.start, "종료시간": r.end, "정지시간(분)": r.stopMinutes,
       "LOSS율(%)": rate === null ? "" : Number(rate.toFixed(1)),
       "특이사항": r.note
     };
   });
   var ws = XLSX.utils.json_to_sheet(rows);
+  var colCount = 13; // 일자,MODEL,LINE,SHIFT,공정순,공정명,구분,원인부서,문제항목,번역명,시작시간,종료시간,정지시간(분),LOSS율(%),특이사항 순이지만 실제 키 개수 기준
+  colCount = Object.keys(rows[0]).length;
+  try{
+    styleExcelHeaderRow(ws, 0, colCount);
+    styleExcelDataRows(ws, 1, rows.length, colCount);
+    var catColIdx = 6; // "구분" 열 (0-based: 일자0 MODEL1 LINE2 SHIFT3 공정순4 공정명5 구분6)
+    var lossColIdx = 12; // "LOSS율(%)" 열
+    rows.forEach(function(row, idx){
+      styleExcelCategoryCell(ws, idx+1, catColIdx, row["구분"]);
+      var rateVal = row["LOSS율(%)"];
+      if(rateVal !== "" && rateVal !== undefined && rateVal !== null){
+        styleExcelEmphasisCell(ws, idx+1, lossColIdx, rateVal >= 10 ? XLSX_DESIGN.lossRate.danger.font : XLSX_DESIGN.lossRate.normal.font);
+      }
+    });
+    setExcelColWidths(ws, [11,10,8,7,8,20,8,16,20,20,9,9,12,10,18]);
+  }catch(styleErr){
+    console.error("[LineLoss] 엑셀 디자인 적용 중 오류(데이터는 정상 저장됨):", styleErr);
+  }
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "LineLoss");
   var today = new Date().toISOString().slice(0,10).replace(/-/g,"");
@@ -3350,26 +3611,41 @@ on("btnExportMaster","click", function(){
   }
   var wb = XLSX.utils.book_new();
 
+  function appendStyledSheet(rowsArr, fallbackRow, sheetName, colWidths){
+    var data = rowsArr.length ? rowsArr : [fallbackRow];
+    var ws = XLSX.utils.json_to_sheet(data);
+    try{
+      var colCount = Object.keys(data[0]).length;
+      styleExcelHeaderRow(ws, 0, colCount);
+      styleExcelDataRows(ws, 1, data.length, colCount);
+      if(colWidths) setExcelColWidths(ws, colWidths);
+    }catch(e){ console.error("[LineLoss] 시트 디자인 적용 오류(" + sheetName + "):", e); }
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    return ws;
+  }
+
   var modelRows = master.models.map(function(m){ return { "MODEL명": m }; });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(modelRows.length?modelRows:[{"MODEL명":""}]), "MODEL");
+  appendStyledSheet(modelRows, {"MODEL명":""}, "MODEL", [20]);
 
   var lineRows = master.lines.map(function(l){ return { "MODEL": l.model||"", "LINE명": l.name }; });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(lineRows.length?lineRows:[{"MODEL":"","LINE명":""}]), "LINE");
+  appendStyledSheet(lineRows, {"MODEL":"","LINE명":""}, "LINE", [14,14]);
 
   var shiftRows = master.shifts.map(function(s){ return { "SHIFT명": s }; });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(shiftRows.length?shiftRows:[{"SHIFT명":""}]), "SHIFT");
+  appendStyledSheet(shiftRows, {"SHIFT명":""}, "SHIFT", [14]);
 
   var procRows = master.processes.map(function(p){ return { "MODEL": p.model||"", "공정순": p.seq, "공정명": p.name }; });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(procRows.length?procRows:[{"MODEL":"","공정순":"","공정명":""}]), "공정");
+  appendStyledSheet(procRows, {"MODEL":"","공정순":"","공정명":""}, "공정", [14,10,24]);
 
   var catRows = master.categories.map(function(c){ return { "구분명": c }; });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(catRows.length?catRows:[{"구분명":""}]), "구분");
+  var catWs = appendStyledSheet(catRows, {"구분명":""}, "구분", [14]);
+  try{ catRows.forEach(function(row,idx){ styleExcelCategoryCell(catWs, idx+1, 0, row["구분명"]); }); }catch(e){}
 
   var deptRows = master.depts.map(function(d){ return { "부서명": d }; });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deptRows.length?deptRows:[{"부서명":""}]), "원인부서");
+  appendStyledSheet(deptRows, {"부서명":""}, "원인부서", [18]);
 
-  var issueRows = master.issues.map(function(it){ return { "MODEL": it.model||"", "공정순": it.procSeq||"", "구분": it.category||"", "문제항목명": it.name }; });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(issueRows.length?issueRows:[{"MODEL":"","공정순":"","구분":"","문제항목명":""}]), "문제항목");
+  var issueRows = master.issues.map(function(it){ return { "MODEL": it.model||"", "공정순": it.procSeq||"", "구분": it.category||"", "문제항목명": it.name, "번역명": it.nameTrans||"" }; });
+  var issueWs = appendStyledSheet(issueRows, {"MODEL":"","공정순":"","구분":"","문제항목명":"","번역명":""}, "문제항목", [14,10,12,24,24]);
+  try{ issueRows.forEach(function(row,idx){ styleExcelCategoryCell(issueWs, idx+1, 2, row["구분"]); }); }catch(e){}
 
   var today = new Date().toISOString().slice(0,10).replace(/-/g,"");
   XLSX.writeFile(wb, "LineLoss_기본정보_" + today + ".xlsx");
@@ -3443,7 +3719,8 @@ function processMasterImportWorkbook(wb){
       model: String(getCellValue(r, ["MODEL","모델"])).trim(),
       procSeq: String(getCellValue(r, ["공정순","공정 순"])).trim(),
       category: String(getCellValue(r, ["구분"])).trim(),
-      name: String(getCellValue(r, ["문제항목명","문제항목"])).trim()
+      name: String(getCellValue(r, ["문제항목명","문제항목"])).trim(),
+      nameTrans: String(getCellValue(r, ["번역명","Translation"])).trim()
     };
   }).filter(function(it){ return it.name; });
 
@@ -3548,7 +3825,7 @@ function getMasterOverwriteWarnings(data){
     return !data.issues.some(function(x){ return x.model===it.model && x.procSeq===it.procSeq && x.category===it.category && x.name===it.name; });
   });
   var usedIssues = removedIssues.filter(function(it){
-    return records.some(function(r){ return r.issue===it.name && (r.model||"")===(it.model||"") && (r.category||"")===(it.category||""); });
+    return records.some(function(r){ return r.issue===(it.nameTrans||it.name) && (r.model||"")===(it.model||"") && (r.category||"")===(it.category||""); });
   });
   if(usedIssues.length) warns.push("문제항목: " + usedIssues.map(function(it){ return (it.model?it.model+"/":"")+it.name; }).join(", ") + " (" + usedIssues.length + "건, 사용 중)");
 
@@ -3626,8 +3903,13 @@ function doMasterImportAppend(data){
     if(master.depts.indexOf(d) === -1){ master.depts.push(d); added.depts++; }
   });
   data.issues.forEach(function(it){
-    var exists = master.issues.some(function(x){ return x.model===it.model && x.procSeq===it.procSeq && x.category===it.category && x.name===it.name; });
-    if(!exists){ master.issues.push({model:it.model, procSeq:it.procSeq, category:it.category, name:it.name}); added.issues++; }
+    var existing = master.issues.find(function(x){ return x.model===it.model && x.procSeq===it.procSeq && x.category===it.category && x.name===it.name; });
+    if(!existing){
+      master.issues.push({model:it.model, procSeq:it.procSeq, category:it.category, name:it.name, nameTrans:it.nameTrans||""});
+      added.issues++;
+    } else if(it.nameTrans){
+      existing.nameTrans = it.nameTrans;
+    }
   });
 
   persistMaster();
@@ -3649,7 +3931,7 @@ function doMasterImportOverwrite(data){
   master.processes = data.processes.map(function(p){ return { model:p.model, seq:p.seq, name:p.name }; });
   master.categories = data.categories.slice();
   master.depts = data.depts.slice();
-  master.issues = data.issues.map(function(it){ return { model:it.model, procSeq:it.procSeq, category:it.category, name:it.name }; });
+  master.issues = data.issues.map(function(it){ return { model:it.model, procSeq:it.procSeq, category:it.category, name:it.name, nameTrans:it.nameTrans||"" }; });
 
   persistMaster();
   pendingMasterImport = null;
@@ -3673,9 +3955,18 @@ on("btnExportIssue","click", function(){
     return;
   }
   var rows = master.issues.map(function(it){
-    return { "MODEL": it.model||"", "공정순": it.procSeq||"", "구분": it.category||"", "문제항목명": it.name };
+    return { "MODEL": it.model||"", "공정순": it.procSeq||"", "구분": it.category||"", "문제항목명": it.name, "번역명": it.nameTrans||"" };
   });
   var ws = XLSX.utils.json_to_sheet(rows);
+  try{
+    var colCount = Object.keys(rows[0]).length;
+    styleExcelHeaderRow(ws, 0, colCount);
+    styleExcelDataRows(ws, 1, rows.length, colCount);
+    rows.forEach(function(row, idx){ styleExcelCategoryCell(ws, idx+1, 2, row["구분"]); });
+    setExcelColWidths(ws, [14,10,12,24,24]);
+  }catch(styleErr){
+    console.error("[LineLoss] 문제항목 엑셀 디자인 적용 오류:", styleErr);
+  }
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "문제항목");
   var today = new Date().toISOString().slice(0,10).replace(/-/g,"");
@@ -3726,11 +4017,12 @@ function processIssueImportRows(json){
     var procSeq = String(getCellValue(row, ["공정순","공정 순"])).trim();
     var category = String(getCellValue(row, ["구분"])).trim();
     var name = String(getCellValue(row, ["문제항목명","문제항목"])).trim();
+    var nameTrans = String(getCellValue(row, ["번역명","Translation"])).trim();
     if(!name){
       errors.push(rowNum + "행: 문제항목명이 비어있어 제외했습니다.");
       return;
     }
-    parsed.push({ model: model, procSeq: procSeq, category: category, name: name });
+    parsed.push({ model: model, procSeq: procSeq, category: category, name: name, nameTrans: nameTrans });
   });
 
   pendingIssueImport = parsed;
@@ -3757,16 +4049,16 @@ function openIssueImportPreview(parsed, errors, totalRows){
   for(var i=0;i<showCount;i++){
     var it = parsed[i];
     var tr = document.createElement("tr");
-    tr.innerHTML = "<td>" + escapeHtml(it.model) + "</td><td>" + escapeHtml(it.procSeq) + "</td><td>" + escapeHtml(it.category) + "</td><td>" + escapeHtml(it.name) + "</td>";
+    tr.innerHTML = "<td>" + escapeHtml(it.model) + "</td><td>" + escapeHtml(it.procSeq) + "</td><td>" + escapeHtml(it.category) + "</td><td>" + escapeHtml(it.name) + "</td><td>" + escapeHtml(it.nameTrans||"") + "</td>";
     tbody.appendChild(tr);
   }
   if(parsed.length > showCount){
     var trMore = document.createElement("tr");
-    trMore.innerHTML = '<td colspan="4" style="text-align:center;color:var(--ink-400);padding:10px;">외 ' + (parsed.length - showCount) + '건 더 있음 (미리보기는 최대 50건까지 표시)</td>';
+    trMore.innerHTML = '<td colspan="5" style="text-align:center;color:var(--ink-400);padding:10px;">외 ' + (parsed.length - showCount) + '건 더 있음 (미리보기는 최대 50건까지 표시)</td>';
     tbody.appendChild(trMore);
   }
   if(!parsed.length){
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--ink-400);padding:24px;">가져올 수 있는 데이터가 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--ink-400);padding:24px;">가져올 수 있는 데이터가 없습니다.</td></tr>';
   }
 
   $("importIssueModalConfirm").disabled = parsed.length === 0;
@@ -3781,9 +4073,17 @@ on("importIssueModalCancel","click", function(){
 on("importIssueModalConfirm","click", function(){
   if(!pendingIssueImport.length) return;
   var addedCount = 0;
+  var updatedCount = 0;
   pendingIssueImport.forEach(function(it){
-    var exists = master.issues.some(function(x){ return x.model===it.model && x.procSeq===it.procSeq && x.category===it.category && x.name===it.name; });
-    if(!exists){ master.issues.push({model:it.model, procSeq:it.procSeq, category:it.category, name:it.name}); addedCount++; }
+    var existing = master.issues.find(function(x){ return x.model===it.model && x.procSeq===it.procSeq && x.category===it.category && x.name===it.name; });
+    if(!existing){
+      master.issues.push({model:it.model, procSeq:it.procSeq, category:it.category, name:it.name, nameTrans:it.nameTrans||""});
+      addedCount++;
+    } else {
+      // 이미 등록된 항목이면 새로 추가하지 않고, 번역명을 엑셀 내용으로 덮어씁니다(엑셀 기준 항상 최신화).
+      existing.nameTrans = it.nameTrans||"";
+      updatedCount++;
+    }
   });
   persistMaster();
   var importedCount = pendingIssueImport.length;
@@ -3793,8 +4093,8 @@ on("importIssueModalConfirm","click", function(){
   refreshFormSelects();
   renderIssueTable();
 
-  var msg = addedCount + "건을 가져왔습니다.";
-  if(importedCount > addedCount) msg += " (이미 등록된 " + (importedCount - addedCount) + "건은 중복 제외)";
+  var msg = addedCount + "건을 새로 추가했습니다.";
+  if(updatedCount) msg += ", " + updatedCount + "건의 번역명을 갱신했습니다.";
   showToast(msg, "success");
 });
 
@@ -4071,6 +4371,7 @@ on("btnAddLine","click", function(){
     refreshFormSelects();
     renderFilterOptions();
     renderTable();
+    renderKpi();
     showToast(cnt ? t("master.updatedWithRecordsToast", { n: cnt }) : t("toast.updated"), "success");
     return;
   }
@@ -4188,6 +4489,7 @@ function renderAvailTimeTable(){
         if(editingAvailIdx === idx) resetAvailTimeForm();
         renderAvailTimeTable();
         renderTable();
+        renderKpi();
         showToast(t("toast.deleted"), "success");
       });
     });
@@ -4226,6 +4528,7 @@ on("btnAddAvail","click", function(){
     resetAvailTimeForm();
     renderAvailTimeTable();
     renderTable();
+    renderKpi();
     showToast(t("toast.updated"), "success");
     return;
   }
@@ -4237,6 +4540,7 @@ on("btnAddAvail","click", function(){
   resetAvailTimeForm();
   renderAvailTimeTable();
   renderTable();
+  renderKpi();
   showToast(date ? t("toast.availExceptionAdded", {date:date}) : t("toast.availBasicAdded"), "success");
 });
 on("add-avail-minutes","keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); $("btnAddAvail").click(); } });
@@ -4334,6 +4638,7 @@ function renderCommonAvailTable(){
         if(editingCommonAvailIdx === idx) resetCommonAvailForm();
         renderCommonAvailTable();
         renderTable();
+        renderKpi();
         showToast(t("toast.deleted"), "success");
       });
     });
@@ -4375,6 +4680,7 @@ on("btnAddCommonAvail","click", function(){
     resetCommonAvailForm();
     renderCommonAvailTable();
     renderTable();
+    renderKpi();
     showToast(t("toast.commonAvailUpdated"), "success");
     return;
   }
@@ -4384,6 +4690,7 @@ on("btnAddCommonAvail","click", function(){
   resetCommonAvailForm();
   renderCommonAvailTable();
   renderTable();
+  renderKpi();
   showToast(t("toast.commonAvailAdded"), "success");
 });
 
@@ -4766,6 +5073,7 @@ on("btnAddProcess","click", function(){
     renderProcessTable();
     refreshFormSelects();
     renderTable();
+    renderKpi();
     showToast(cnt ? t("master.updatedWithRecordsToast", { n: cnt }) : t("toast.updated"), "success");
     return;
   }
@@ -4841,11 +5149,11 @@ function renderIssueTable(){
 
   var visible = getFilteredIssuesForTable();
   if(!master.issues.length){
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--ink-400);padding:24px;">' + escapeHtml(t("master.noIssueData")) + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--ink-400);padding:24px;">' + escapeHtml(t("master.noIssueData")) + '</td></tr>';
     return;
   }
   if(!visible.length){
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--ink-400);padding:24px;">' + escapeHtml(t("master.noIssueFiltered")) + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--ink-400);padding:24px;">' + escapeHtml(t("master.noIssueFiltered")) + '</td></tr>';
     return;
   }
   visible.forEach(function(pair){
@@ -4857,6 +5165,7 @@ function renderIssueTable(){
       "<td>" + (it.procSeq ? escapeHtml(it.procSeq) : ('<span style="color:var(--ink-400);">' + escapeHtml(t("common.all")) + '</span>')) + "</td>" +
       "<td>" + (it.category ? ('<span class="badge b-' + escapeHtml(it.category) + '">' + escapeHtml(it.category) + '</span>') : "") + "</td>" +
       "<td>" + escapeHtml(it.name) + "</td>" +
+      "<td>" + (it.nameTrans ? escapeHtml(it.nameTrans) : ('<span style="color:var(--ink-400);">—</span>')) + "</td>" +
       '<td style="text-align:center;"><div class="row-actions" style="justify-content:center;">' +
         '<div class="icon-btn" data-iedit="' + idx + '" title="' + escapeHtml(t("common.editSave")) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></div>' +
         '<div class="icon-btn del" data-idel="' + idx + '" title="' + escapeHtml(t("common.cancel")) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></div>' +
@@ -4874,6 +5183,7 @@ function renderIssueTable(){
       $("add-issue-procseq").value = it.procSeq || "";
       $("add-issue-cat").value = it.category || "";
       $("add-issue-name").value = it.name;
+      if($("add-issue-nametrans")) $("add-issue-nametrans").value = it.nameTrans || "";
       $("btnAddIssue").textContent = t("common.editSave");
       $("btnAddIssue").classList.add("btn-amber");
       $("btnCancelIssueEdit").style.display = "inline-flex";
@@ -4902,31 +5212,76 @@ function resetIssueForm(){
   editingIssueIdx = null;
   if($("add-issue-procseq")) $("add-issue-procseq").selectedIndex = 0;
   if($("add-issue-name")) $("add-issue-name").value = "";
+  if($("add-issue-nametrans")) $("add-issue-nametrans").value = "";
   if($("btnAddIssue")){
     $("btnAddIssue").textContent = t("common.add");
     $("btnAddIssue").classList.remove("btn-amber");
   }
   if($("btnCancelIssueEdit")) $("btnCancelIssueEdit").style.display = "none";
 }
+/* ---- 문제항목명 자동번역 (베트남어 -> 한국어) ----
+   비공식 무료 번역 엔드포인트를 사용합니다. 외부 서비스 정책에 따라 예고 없이
+   동작하지 않을 수 있으며, 그런 경우 사용자가 직접 입력하면 됩니다(기존 기능에는 영향 없음). */
+function translateViToKo(text){
+  var url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=vi&tl=ko&dt=t&q=" + encodeURIComponent(text);
+  return fetch(url)
+    .then(function(res){
+      if(!res.ok) throw new Error("translate http " + res.status);
+      return res.json();
+    })
+    .then(function(data){
+      // 응답 형태: [[["번역문","원문",null,null,...], ...], ...]
+      if(!Array.isArray(data) || !Array.isArray(data[0])) throw new Error("translate parse error");
+      return data[0].map(function(seg){ return seg && seg[0] ? seg[0] : ""; }).join("");
+    });
+}
+
+on("btnAutoTransIssue","click", function(){
+  var nameInput = $("add-issue-nametrans");
+  var transInput = $("add-issue-name");
+  var btn = $("btnAutoTransIssue");
+  if(!nameInput || !transInput || !btn) return;
+  var name = nameInput.value.trim();
+  if(!name){ showToast(t("toast.issueNameRequired"), "error"); nameInput.focus(); return; }
+
+  var originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = t("master.issue.autoTransing");
+
+  translateViToKo(name).then(function(translated){
+    if(translated) transInput.value = translated;
+    else showToast(t("toast.autoTransFailed"), "error");
+  }).catch(function(err){
+    console.error("[LineLoss] 자동번역 실패:", err);
+    showToast(t("toast.autoTransFailed"), "error");
+  }).finally(function(){
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
+  });
+});
+
 on("btnAddIssue","click", function(){
   if(!isAdmin()){ showToast(t("auth.viewerNoPermission"), "error"); return; }
   var model = $("add-issue-model").value;
   var cat = $("add-issue-cat").value;
   var procSeq = $("add-issue-procseq").value;
   var name = $("add-issue-name").value.trim();
+  var nameTrans = $("add-issue-nametrans") ? $("add-issue-nametrans").value.trim() : "";
   if(!name){ showToast(t("toast.issueNameRequired"), "error"); return; }
 
   if(editingIssueIdx !== null){
     var dup = master.issues.some(function(it,i){ return i!==editingIssueIdx && it.model===model && it.category===cat && it.procSeq===procSeq && it.name===name; });
     if(dup){ showToast(t("toast.issueAlreadyExists"), "error"); return; }
     var old = master.issues[editingIssueIdx];
-    var oldModel = old.model, oldCat = old.category, oldSeq = old.procSeq, oldName = old.name;
-    master.issues[editingIssueIdx] = { model: model, category: cat, procSeq: procSeq, name: name };
+    var oldModel = old.model, oldCat = old.category, oldSeq = old.procSeq;
+    var oldRecordIssueVal = old.nameTrans || old.name;
+    var newRecordIssueVal = nameTrans || name;
+    master.issues[editingIssueIdx] = { model: model, category: cat, procSeq: procSeq, name: name, nameTrans: nameTrans };
     persistMaster();
     var cnt = 0;
     records.forEach(function(r){
-      if(r.issue===oldName && (r.category===oldCat || !oldCat) && (r.procSeq===oldSeq || !oldSeq) && (r.model===oldModel || !oldModel)){
-        r.issue=name; r.category = cat || r.category; if(procSeq) r.procSeq = procSeq; if(model) r.model = model;
+      if(r.issue===oldRecordIssueVal && (r.category===oldCat || !oldCat) && (r.procSeq===oldSeq || !oldSeq) && (r.model===oldModel || !oldModel)){
+        r.issue=newRecordIssueVal; r.category = cat || r.category; if(procSeq) r.procSeq = procSeq; if(model) r.model = model;
         cnt++;
       }
     });
@@ -4935,13 +5290,14 @@ on("btnAddIssue","click", function(){
     renderIssueTable();
     refreshFormSelects();
     renderTable();
+    renderKpi();
     showToast(cnt ? t("master.updatedWithRecordsToast", { n: cnt }) : t("toast.updated"), "success");
     return;
   }
 
   var exists = master.issues.some(function(i){ return i.model===model && i.category===cat && i.procSeq===procSeq && i.name===name; });
   if(exists){ showToast(t("toast.issueAlreadyExists"), "error"); return; }
-  master.issues.push({model: model, category: cat, procSeq: procSeq, name: name});
+  master.issues.push({model: model, category: cat, procSeq: procSeq, name: name, nameTrans: nameTrans});
   persistMaster();
   resetIssueForm();
   renderIssueTable();
