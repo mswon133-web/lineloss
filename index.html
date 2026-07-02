@@ -179,8 +179,10 @@ button{font-family:inherit;}
 .card-body{padding:18px;}
 
 /* ===== KPI strip ===== */
-.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+.analysis-pane{ display:block; }
+.analysis-pane.active{ display:block; }
 .kpi-row.kpi-row-6{grid-template-columns:repeat(6,1fr);}
+.kpi-row.kpi-row-analysis{grid-template-columns:repeat(5,1fr) !important;overflow-x:auto;}
 .kpi{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   padding:14px 16px;position:relative;overflow:hidden;
@@ -452,6 +454,12 @@ tr.row-editing{background:var(--blue-soft);}
   .form-grid{grid-template-columns:repeat(2,1fr);}
   .f-field.span-2,.f-field.span-4{grid-column:span 2;}
   .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .kpi-row.kpi-row-6{grid-template-columns:repeat(6,1fr) !important;}
+  .kpi-row.kpi-row-6 .k-val{font-size:17px;}
+  .kpi-row.kpi-row-6 .k-label{font-size:10px;}
+  .kpi-row.kpi-row-analysis{grid-template-columns:repeat(5,1fr) !important;}
+  .kpi-row.kpi-row-analysis .k-val{font-size:17px;}
+  .kpi-row.kpi-row-analysis .k-label{font-size:10px;}
 }
 @media (max-width:760px){
   .app{grid-template-columns:1fr;}
@@ -690,7 +698,7 @@ tr.row-editing{background:var(--blue-soft);}
       <div class="topbar">
         <div>
           <div class="page-title" data-i18n="analysis.title">분석현황</div>
-          <div class="page-sub" data-i18n="analysis.subtitle">MODEL · 기간 · LINE 기준으로 일자별 LOSS율과 구분별 점유율을 분석합니다</div>
+          <div class="page-sub" data-i18n="analysis.subtitle">MODEL · 기간 · LINE 기준으로 다양한 관점에서 LOSS를 분석합니다</div>
         </div>
       </div>
 
@@ -723,25 +731,65 @@ tr.row-editing{background:var(--blue-soft);}
         </div>
       </div>
 
-      <div class="kpi-row" id="anKpiRow"></div>
+      <div class="kpi-row kpi-row-analysis" id="anKpiRow"></div>
 
-      <div class="card">
-        <div class="card-head">
-          <h2><span data-i18n="analysis.stackedTitle">일자별 구분별 LOSS율 (누적 띠그래프) · 총 LOSS율 (꺾은선)</span> <span class="tag" id="anStackedScopeTag" style="display:none;"></span></h2>
-        </div>
-        <div class="card-body">
-          <div id="anStackedChartHost" style="width:100%;overflow-x:auto;"></div>
-          <div id="anStackedLegend" style="margin-top:10px;"></div>
+      <!-- 분석 탭 -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="tabbar" id="analysisTabs" style="padding:0 16px;">
+          <div class="tab active" data-antab="stacked">일자별 구분별</div>
+          <div class="tab" data-antab="lineloss">일별 LINE별 LOSS율</div>
+          <div class="tab" data-antab="issue">문제항목별 LOSS율</div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-head">
-          <h2 data-i18n="analysis.pieTitle">구분별 LOSS율 점유율 (원형 그래프)</h2>
+      <!-- 탭1: 기존 누적 띠그래프 -->
+      <div class="analysis-pane active" id="an-pane-stacked">
+        <div class="card">
+          <div class="card-head">
+            <h2><span data-i18n="analysis.stackedTitle">일자별 구분별 LOSS율 (누적 띠그래프) · 총 LOSS율 (꺾은선)</span> <span class="tag" id="anStackedScopeTag" style="display:none;"></span></h2>
+          </div>
+          <div class="card-body">
+            <div id="anStackedChartHost" style="width:100%;overflow-x:auto;"></div>
+            <div id="anStackedLegend" style="margin-top:10px;"></div>
+          </div>
         </div>
-        <div class="card-body" style="display:flex;gap:28px;flex-wrap:wrap;align-items:center;">
-          <div id="anPieChartHost"></div>
-          <div id="anPieLegend" style="flex:1;min-width:220px;"></div>
+      </div>
+
+      <!-- 탭2: 일별 LINE별 LOSS율 막대 그래프 -->
+      <div class="analysis-pane" id="an-pane-lineloss" style="display:none;">
+        <div class="card">
+          <div class="card-head">
+            <h2>일별 LINE별 LOSS율 현황 (막대 그래프)</h2>
+          </div>
+          <div class="card-body">
+            <div id="anLineChartHost" style="width:100%;overflow-x:auto;"></div>
+            <div id="anLineLegend" style="margin-top:10px;"></div>
+            <div id="anLineEmpty" style="display:none;text-align:center;color:var(--ink-400);padding:40px;">데이터가 없습니다. 조회 조건을 확인해 주세요.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭3: 문제항목별 LOSS율 가로 막대 그래프 -->
+      <div class="analysis-pane" id="an-pane-issue" style="display:none;">
+        <div class="card">
+          <div class="card-head">
+            <h2>문제항목별 LOSS율 현황 (가로 막대 그래프)</h2>
+          </div>
+          <div class="card-body">
+            <div style="margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <label style="font-size:13px;color:var(--ink-700);">표시 기준:</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                <input type="radio" name="issueChartMode" id="issueChartByIssue" value="issue" checked>
+                문제항목명
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                <input type="radio" name="issueChartMode" id="issueChartByTrans" value="trans">
+                번역명
+              </label>
+            </div>
+            <div id="anIssueChartHost" style="width:100%;overflow-x:auto;"></div>
+            <div id="anIssueEmpty" style="display:none;text-align:center;color:var(--ink-400);padding:40px;">데이터가 없습니다. 조회 조건을 확인해 주세요.</div>
+          </div>
         </div>
       </div>
     </section>
@@ -1072,15 +1120,8 @@ tr.row-editing{background:var(--blue-soft);}
     </h3>
     <p id="importSummaryText" data-i18n="common.checkingFile">파일을 확인하는 중입니다...</p>
 
-    <div style="display:flex;gap:10px;align-items:flex-start;background:var(--navy-50,#f5f7fb);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-        <input type="radio" name="importRecordMode" id="importRecordModeAppend" value="append" checked>
-        <span data-i18n-html="register.import.modeAppendHtml"><b>추가</b> (기존 등록 내역 유지 + 새 데이터 추가)</span>
-      </label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-        <input type="radio" name="importRecordMode" id="importRecordModeOverwrite" value="overwrite">
-        <span data-i18n-html="register.import.modeOverwriteHtml"><b>덮어쓰기</b> (기존 등록 내역을 모두 지우고 엑셀 내용으로 교체)</span>
-      </label>
+    <div style="display:flex;gap:10px;align-items:flex-start;background:var(--navy-50,#f5f7fb);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--ink-700);">
+      <span data-i18n-html="register.import.modeHelp">아래 두 버튼 중 원하는 방식을 선택해 바로 가져올 수 있습니다. <b>추가</b>: 기존 등록 내역을 유지하면서 새 데이터를 더합니다. <b>덮어쓰기</b>: 기존 등록 내역을 모두 지우고 엑셀 내용으로 교체합니다.</span>
     </div>
     <div id="importRecordOverwriteWarnBox" style="display:none;background:var(--red-soft);border:1px solid #f3c9c2;border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--red);margin-bottom:12px;"></div>
 
@@ -1099,9 +1140,13 @@ tr.row-editing{background:var(--blue-soft);}
     </div>
     <div class="modal-actions">
       <button class="btn" id="importModalCancel" data-i18n="common.cancel">취소</button>
-      <button class="btn btn-primary" id="importModalConfirm">
+      <button class="btn" id="importModalConfirmAppend" style="border-color:var(--blue);color:var(--blue);">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14"></path></svg>
-        <span data-i18n="common.importThisData">이 데이터로 가져오기</span>
+        <span data-i18n="register.import.modeAppendShort">추가</span>
+      </button>
+      <button class="btn btn-primary" id="importModalConfirmOverwrite" style="background:var(--red);border-color:var(--red);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M3 6h18"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
+        <span data-i18n="register.import.modeOverwriteShort">덮어쓰기</span>
       </button>
     </div>
   </div>
@@ -1234,8 +1279,8 @@ var I18N = {
     "register.import.noData": "가져올 수 있는 데이터가 없습니다.",
     "register.import.importedToast": "{n}건을 가져왔습니다.",
     "register.import.masterAddedSuffix": "(기본정보에 새 항목 {n}건 자동 추가됨)",
-    "register.import.modeAppendHtml": "<b>추가</b> (기존 등록 내역 유지 + 새 데이터 추가)",
-    "register.import.modeOverwriteHtml": "<b>덮어쓰기</b> (기존 등록 내역을 모두 지우고 엑셀 내용으로 교체)",
+    "register.import.modeAppendShort": "추가", "register.import.modeOverwriteShort": "덮어쓰기",
+    "register.import.modeHelp": "아래 두 버튼 중 원하는 방식을 선택해 바로 가져올 수 있습니다. <b>추가</b>: 기존 등록 내역을 유지하면서 새 데이터를 더합니다. <b>덮어쓰기</b>: 기존 등록 내역을 모두 지우고 엑셀 내용으로 교체합니다.",
     "register.import.overwriteWarn": "현재 등록되어 있는 LOSS 내역 {n}건이 모두 삭제되고, 엑셀의 내용으로 교체됩니다.",
     "register.import.overwriteConfirmTitle": "등록 내역 덮어쓰기",
     "register.import.overwriteConfirmBody": "현재 등록되어 있는 LOSS 내역 {n}건을 모두 삭제하고 엑셀 내용으로 교체합니다. 삭제된 내역은 복구할 수 없습니다. 계속하시겠습니까?",
@@ -1498,8 +1543,8 @@ var I18N = {
     "register.import.noData": "No data available to import.",
     "register.import.importedToast": "Imported {n} record(s).",
     "register.import.masterAddedSuffix": "({n} new item(s) automatically added to Master Data)",
-    "register.import.modeAppendHtml": "<b>Add</b> (keep existing records + add new data)",
-    "register.import.modeOverwriteHtml": "<b>Overwrite</b> (delete all existing records and replace with the Excel content)",
+    "register.import.modeAppendShort": "Add", "register.import.modeOverwriteShort": "Overwrite",
+    "register.import.modeHelp": "Choose one of the two buttons below to import right away. <b>Add</b>: keeps existing records and adds the new data. <b>Overwrite</b>: deletes all existing records and replaces them with the Excel content.",
     "register.import.overwriteWarn": "All {n} currently registered LOSS record(s) will be deleted and replaced with the Excel content.",
     "register.import.overwriteConfirmTitle": "Overwrite Records",
     "register.import.overwriteConfirmBody": "This will delete all {n} currently registered LOSS record(s) and replace them with the Excel content. Deleted records cannot be recovered. Continue?",
@@ -1762,8 +1807,8 @@ var I18N = {
     "register.import.noData": "Không có dữ liệu để nhập.",
     "register.import.importedToast": "Đã nhập {n} mục.",
     "register.import.masterAddedSuffix": "(Đã tự động thêm {n} mục mới vào Dữ liệu cơ bản)",
-    "register.import.modeAppendHtml": "<b>Thêm</b> (giữ dữ liệu hiện có + thêm dữ liệu mới)",
-    "register.import.modeOverwriteHtml": "<b>Ghi đè</b> (xóa toàn bộ dữ liệu hiện có và thay bằng nội dung Excel)",
+    "register.import.modeAppendShort": "Thêm", "register.import.modeOverwriteShort": "Ghi đè",
+    "register.import.modeHelp": "Chọn một trong hai nút dưới đây để nhập ngay. <b>Thêm</b>: giữ dữ liệu hiện có và thêm dữ liệu mới. <b>Ghi đè</b>: xóa toàn bộ dữ liệu hiện có và thay bằng nội dung Excel.",
     "register.import.overwriteWarn": "Toàn bộ {n} mục LOSS đang đăng ký sẽ bị xóa và thay bằng nội dung Excel.",
     "register.import.overwriteConfirmTitle": "Ghi đè dữ liệu đăng ký",
     "register.import.overwriteConfirmBody": "Thao tác này sẽ xóa toàn bộ {n} mục LOSS đang đăng ký và thay bằng nội dung Excel. Không thể khôi phục dữ liệu đã xóa. Tiếp tục?",
@@ -2319,23 +2364,45 @@ function stopFirestoreSubscriptions(){
    내부 구현만 localStorage 대신 Firestore 쓰기로 교체합니다.
    레코드는 "현재 records 배열 전체"를 Firestore와 맞추는 방식(추가/수정분 set + 빠진 문서 삭제)으로 동기화합니다. */
 var lastSyncedRecordIds = null; // 마지막으로 Firestore에 반영한 id 집합 (삭제 감지용)
+// Firestore의 배치(batch)는 한 번에 최대 500개 작업까지만 허용되며, 초과 시 전체가 실패합니다.
+// 작업 목록(set/delete 콜백)을 받아 499개씩 나눠서 여러 배치로 순차 커밋합니다.
+function commitInChunks(operations){
+  var CHUNK = 499;
+  var chunks = [];
+  for(var i=0;i<operations.length;i+=CHUNK){ chunks.push(operations.slice(i, i+CHUNK)); }
+  var p = Promise.resolve();
+  chunks.forEach(function(chunk){
+    p = p.then(function(){
+      var batch = fbDb.batch();
+      chunk.forEach(function(op){ op(batch); });
+      return batch.commit();
+    });
+  });
+  return p;
+}
+
 function persistRecords(){
   if(!isAdmin()){ touchSaved(); return; } // 조회자는 쓰기 자체를 시도하지 않음(보안규칙으로도 차단됨)
-  var batch = fbDb.batch();
   var idsNow = {};
-  records.forEach(function(r){
-    idsNow[String(r.id)] = true;
-    var data = {};
-    for(var k in r){ if(k !== "id") data[k] = r[k]; }
-    batch.set(fbDb.collection("records").doc(String(r.id)), data);
-  });
-  if(lastSyncedRecordIds){
-    Object.keys(lastSyncedRecordIds).forEach(function(oldId){
-      if(!idsNow[oldId]) batch.delete(fbDb.collection("records").doc(oldId));
+  records.forEach(function(r){ idsNow[String(r.id)] = true; });
+
+  // Firestore에 실제로 존재하는 문서 id 목록을 직접 조회해서, 지금 메모리상 records에 없는
+  // 문서는 모두 삭제 대상으로 판단합니다. (이전에는 로컬 변수만 믿었는데, 페이지를 새로
+  // 열거나 다른 기기에서 동시에 쓰는 경우 그 변수가 실제 상태와 어긋나서, "덮어쓰기"를 해도
+  // 기존 문서가 삭제되지 않는 문제가 있었습니다. 매번 서버에서 직접 확인하는 방식으로 수정합니다.)
+  fbDb.collection("records").get().then(function(snap){
+    var operations = [];
+    snap.forEach(function(doc){
+      if(!idsNow[doc.id]) operations.push(function(batch){ batch.delete(fbDb.collection("records").doc(doc.id)); });
     });
-  }
-  lastSyncedRecordIds = idsNow;
-  batch.commit().then(touchSaved).catch(function(err){
+    records.forEach(function(r){
+      var data = {};
+      for(var k in r){ if(k !== "id") data[k] = r[k]; }
+      operations.push(function(batch){ batch.set(fbDb.collection("records").doc(String(r.id)), data); });
+    });
+    lastSyncedRecordIds = idsNow;
+    return commitInChunks(operations);
+  }).then(touchSaved).catch(function(err){
     console.error("저장 실패:", err);
     showToast(t("toast.saveFail"), "error");
   });
@@ -2376,15 +2443,15 @@ function migrateLocalDataToFirestoreIfNeeded(){
       if((!localRecords || !localRecords.length) && !localMaster) return false;
 
       showToast(t("auth.migrating"), "success");
-      var batch = fbDb.batch();
+      var migrateOps = [];
       (localRecords||[]).forEach(function(r){
         var data = {};
         for(var k in r){ if(k !== "id") data[k] = r[k]; }
-        batch.set(fbDb.collection("records").doc(String(r.id)), data);
+        migrateOps.push(function(batch){ batch.set(fbDb.collection("records").doc(String(r.id)), data); });
       });
-      batch.set(fbDb.collection("master").doc("main"), ensureMasterShape(localMaster || defaultMaster()));
-      batch.set(fbDb.collection("meta").doc("counter"), localMeta || { nextId: 1 });
-      return batch.commit().then(function(){ return true; });
+      migrateOps.push(function(batch){ batch.set(fbDb.collection("master").doc("main"), ensureMasterShape(localMaster || defaultMaster())); });
+      migrateOps.push(function(batch){ batch.set(fbDb.collection("meta").doc("counter"), localMeta || { nextId: 1 }); });
+      return commitInChunks(migrateOps).then(function(){ return true; });
     });
   }).catch(function(err){
     console.error("마이그레이션 확인 중 오류:", err);
@@ -2652,20 +2719,15 @@ function getProcNameOptions(){ return getProcNameOptionsBy(""); }
 // - 그 중 구분/공정순까지 일치하는 항목이 있으면 그것만 보여줍니다.
 // - 일치하는 게 없으면 단계적으로 조건을 넓혀가며(공정순 무시 → 구분만 → 모델만) 보여줍니다.
 function getIssueOptions(model, category, procSeq){
-  var pool = master.issues;
-  if(model){
-    var byModel = pool.filter(function(i){ return i.model===model; });
-    if(byModel.length) pool = byModel;
-  }
-  var byAll = pool.filter(function(i){
-    var catOk = !category || i.category===category;
-    var seqOk = !procSeq || !i.procSeq || i.procSeq===procSeq;
-    return catOk && seqOk;
-  });
-  if(byAll.length) return byAll.map(function(i){return i.nameTrans || i.name;});
-  var byCat = pool.filter(function(i){ return !category || i.category===category; });
-  if(byCat.length) return byCat.map(function(i){return i.nameTrans || i.name;});
-  return pool.map(function(i){return i.nameTrans || i.name;});
+  // 등록/현황조회에서 "문제항목" 드롭다운은, MODEL + 공정순 + 구분이 모두 정확히 일치하는
+  // 기본정보(문제항목) 항목만 보여줍니다. 일치하는 항목이 하나도 없으면, 다른 조건으로
+  // 완화해서 보여주지 않고 빈 상태로 둡니다(잘못된 조합으로 등록되는 것을 막기 위함).
+  return master.issues.filter(function(i){
+    var modelOk = (i.model||"") === (model||"");
+    var catOk = (i.category||"") === (category||"");
+    var seqOk = (i.procSeq||"") === (procSeq||"");
+    return modelOk && catOk && seqOk;
+  }).map(function(i){ return i.nameTrans || i.name; });
 }
 
 // 등록된 문제항목명(issue)에 대응하는 번역명(nameTrans)을 master.issues에서 찾아 반환합니다.
@@ -2822,17 +2884,36 @@ function bindRowWidgets(rowEl){
   if(procSeqSel){
     procSeqSel.addEventListener("change", function(){
       var seq = procSeqSel.value;
+      var model = modelSel ? modelSel.value : "";
       var found = null;
-      for(var i=0;i<master.processes.length;i++){ if(master.processes[i].seq===seq){ found = master.processes[i]; break; } }
-      if(found && procNameSel) procNameSel.value = found.name;
+      // 같은 모델 안에서 공정순이 일치하는 공정을 먼저 찾고, 없으면(모델 미지정 등) 전체에서 찾습니다.
+      for(var i=0;i<master.processes.length;i++){
+        var p = master.processes[i];
+        if(p.seq===seq && (p.model||"")===(model||"")){ found = p; break; }
+      }
+      if(!found){
+        for(var j=0;j<master.processes.length;j++){
+          if(master.processes[j].seq===seq){ found = master.processes[j]; break; }
+        }
+      }
+      if(procNameSel) procNameSel.value = found ? found.name : "";
       refreshIssueByContext();
     });
   }
   if(procNameSel){
     procNameSel.addEventListener("change", function(){
       var name = procNameSel.value;
+      var model = modelSel ? modelSel.value : "";
       var found = null;
-      for(var i=0;i<master.processes.length;i++){ if(master.processes[i].name===name){ found = master.processes[i]; break; } }
+      for(var i=0;i<master.processes.length;i++){
+        var p = master.processes[i];
+        if(p.name===name && (p.model||"")===(model||"")){ found = p; break; }
+      }
+      if(!found){
+        for(var j=0;j<master.processes.length;j++){
+          if(master.processes[j].name===name){ found = master.processes[j]; break; }
+        }
+      }
       if(found && procSeqSel){ procSeqSel.value = found.seq; refreshIssueByContext(); }
     });
   }
@@ -3466,50 +3547,39 @@ function openImportPreview(parsed, errors, totalRows){
     tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--ink-400);padding:24px;">' + escapeHtml(t("register.import.noData")) + '</td></tr>';
   }
 
-  $("importModalConfirm").disabled = parsed.length === 0;
-  $("importRecordModeAppend").checked = true;
-  updateRecordImportOverwriteWarning();
+  $("importModalConfirmAppend").disabled = parsed.length === 0;
+  $("importModalConfirmOverwrite").disabled = parsed.length === 0;
+  var warnBox = $("importRecordOverwriteWarnBox");
+  if(records.length){
+    warnBox.style.display = "block";
+    warnBox.innerHTML = "⚠ " + escapeHtml(t("register.import.overwriteWarn", { n: records.length }));
+  } else {
+    warnBox.style.display = "none";
+    warnBox.innerHTML = "";
+  }
   $("importModalOverlay").classList.add("open");
 }
-
-/* 덮어쓰기 모드를 선택하면, 현재 등록되어 있는 LOSS 건수를 안내하는 경고를 표시합니다.
-   (사용자 지시에 따라 경고만 표시하고, 확인 시 그대로 진행합니다) */
-function updateRecordImportOverwriteWarning(){
-  var box = $("importRecordOverwriteWarnBox");
-  var isOverwrite = $("importRecordModeOverwrite").checked;
-  if(!isOverwrite || !records.length){
-    box.style.display = "none";
-    box.innerHTML = "";
-    return;
-  }
-  box.style.display = "block";
-  box.innerHTML = "⚠ " + escapeHtml(t("register.import.overwriteWarn", { n: records.length }));
-}
-on("importRecordModeAppend","change", updateRecordImportOverwriteWarning);
-on("importRecordModeOverwrite","change", updateRecordImportOverwriteWarning);
 
 on("importModalCancel","click", function(){
   $("importModalOverlay").classList.remove("open");
   pendingImportRows = [];
 });
 
-on("importModalConfirm","click", function(){
+on("importModalConfirmAppend","click", function(){
   if(!pendingImportRows.length) return;
-  var isOverwrite = $("importRecordModeOverwrite").checked;
-
-  if(isOverwrite){
-    confirmModal(
-      t("register.import.overwriteConfirmTitle"),
-      t("register.import.overwriteConfirmBody", { n: records.length }),
-      function(ok){
-        if(!ok) return;
-        doRecordImportOverwrite();
-      }
-    );
-    return;
-  }
-
   doRecordImportAppend();
+});
+
+on("importModalConfirmOverwrite","click", function(){
+  if(!pendingImportRows.length) return;
+  confirmModal(
+    t("register.import.overwriteConfirmTitle"),
+    t("register.import.overwriteConfirmBody", { n: records.length }),
+    function(ok){
+      if(!ok) return;
+      doRecordImportOverwrite();
+    }
+  );
 });
 
 /* 마스터에 없는 값들을 자동으로 추가합니다 (기존 마스터 값은 그대로 유지, 새 값만 보강). 추가/덮어쓰기 공용. */
@@ -5473,7 +5543,8 @@ function renderAnalysis(){
 
   renderAnalysisKpi(dayData, list);
   renderStackedChart(dayData, catList);
-  renderPieChart(list, catList);
+  renderLineLossChart(list);
+  renderIssueLossChart(list);
 }
 
 function renderAnalysisKpi(dayData, list){
@@ -5693,6 +5764,225 @@ function renderPieChart(list, catList){
   host.innerHTML = svg;
   legendHost.innerHTML = rows;
 }
+
+/* =========================================================================
+   탭2: 일별 LINE별 LOSS율 막대 그래프
+   ========================================================================= */
+function renderLineLossChart(list){
+  var host = $("anLineChartHost");
+  var emptyMsg = $("anLineEmpty");
+  if(!host) return;
+
+  // 날짜별 LINE별 정지시간/가용시간 집계
+  var dateLineMap = {};
+  var lineSet = {};
+  list.forEach(function(r){
+    var date = r.date || "";
+    var line = r.line || "(미지정)";
+    if(!dateLineMap[date]) dateLineMap[date] = {};
+    if(!dateLineMap[date][line]) dateLineMap[date][line] = { stop: 0, avail: 0 };
+    dateLineMap[date][line].stop += (r.stopMinutes||0);
+    var av = findAvailMinutes(r.model, r.line, r.shift, r.date);
+    if(av && av > 0) dateLineMap[date][line].avail += av;
+    lineSet[line] = true;
+  });
+
+  var dates = Object.keys(dateLineMap).sort();
+  var lines = Object.keys(lineSet).sort();
+
+  if(!dates.length){
+    host.innerHTML = "";
+    if(emptyMsg) emptyMsg.style.display = "block";
+    return;
+  }
+  if(emptyMsg) emptyMsg.style.display = "none";
+
+  var BAR_W = 18, BAR_GAP = 4, GROUP_GAP = 20;
+  var groupW = lines.length * (BAR_W + BAR_GAP) + GROUP_GAP;
+  var W = Math.max(dates.length * groupW + 80, 400);
+  var H = 320, PAD_L = 60, PAD_B = 60, PAD_T = 30, PAD_R = 20;
+  var chartW = W - PAD_L - PAD_R;
+  var chartH = H - PAD_T - PAD_B;
+
+  // y축 최대값 (LOSS율%)
+  var maxRate = 0;
+  dates.forEach(function(d){
+    lines.forEach(function(l){
+      var dt = dateLineMap[d][l];
+      if(dt && dt.avail > 0){
+        var rate = dt.stop / dt.avail * 100;
+        if(rate > maxRate) maxRate = rate;
+      }
+    });
+  });
+  maxRate = Math.ceil((maxRate || 20) / 10) * 10;
+
+  var svg = '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" style="font-family:sans-serif;">';
+
+  // y축 눈금선
+  for(var yi=0;yi<=5;yi++){
+    var yVal = maxRate/5*yi;
+    var yPos = PAD_T + chartH - (yVal/maxRate)*chartH;
+    svg += '<line x1="'+PAD_L+'" y1="'+yPos.toFixed(1)+'" x2="'+(W-PAD_R)+'" y2="'+yPos.toFixed(1)+'" stroke="#e3e7f0" stroke-width="1"/>';
+    svg += '<text x="'+(PAD_L-6)+'" y="'+(yPos+4).toFixed(1)+'" text-anchor="end" font-size="10" fill="#6b7390">'+yVal.toFixed(0)+'%</text>';
+  }
+
+  // 막대 및 x축 라벨
+  dates.forEach(function(date, di){
+    var groupX = PAD_L + di * groupW + GROUP_GAP/2;
+    lines.forEach(function(line, li){
+      var dt = dateLineMap[date][line];
+      var rate = (dt && dt.avail > 0) ? dt.stop/dt.avail*100 : 0;
+      var barH = rate > 0 ? Math.max((rate/maxRate)*chartH, 2) : 0;
+      var barX = groupX + li*(BAR_W+BAR_GAP);
+      var barY = PAD_T + chartH - barH;
+      var color = ANALYSIS_COLORS[li % ANALYSIS_COLORS.length];
+      svg += '<rect x="'+barX.toFixed(1)+'" y="'+barY.toFixed(1)+'" width="'+BAR_W+'" height="'+barH.toFixed(1)+'" fill="'+color+'" rx="2">' +
+        '<title>'+escapeHtml(date)+' / '+escapeHtml(line)+'\nLOSS율: '+rate.toFixed(1)+'%</title></rect>';
+      if(rate > 0){
+        svg += '<text x="'+(barX+BAR_W/2).toFixed(1)+'" y="'+(barY-3).toFixed(1)+'" text-anchor="middle" font-size="9" fill="'+color+'">'+rate.toFixed(1)+'%</text>';
+      }
+    });
+    // x축 날짜 라벨
+    var labelX = groupX + lines.length*(BAR_W+BAR_GAP)/2;
+    svg += '<text x="'+labelX.toFixed(1)+'" y="'+(PAD_T+chartH+14)+'" text-anchor="middle" font-size="10" fill="#3d4663">'+escapeHtml(date.slice(5))+'</text>';
+  });
+
+  // y축 라인
+  svg += '<line x1="'+PAD_L+'" y1="'+PAD_T+'" x2="'+PAD_L+'" y2="'+(PAD_T+chartH)+'" stroke="#3d4663" stroke-width="1.5"/>';
+  // x축 라인
+  svg += '<line x1="'+PAD_L+'" y1="'+(PAD_T+chartH)+'" x2="'+(W-PAD_R)+'" y2="'+(PAD_T+chartH)+'" stroke="#3d4663" stroke-width="1.5"/>';
+  // y축 레이블
+  svg += '<text x="14" y="'+(PAD_T+chartH/2)+'" text-anchor="middle" font-size="11" fill="#3d4663" transform="rotate(-90,14,'+(PAD_T+chartH/2)+')">LOSS율 (%)</text>';
+
+  svg += '</svg>';
+
+  // 범례
+  var legend = '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;">';
+  lines.forEach(function(l, li){
+    legend += '<span style="display:flex;align-items:center;gap:5px;font-size:12px;"><span style="width:12px;height:12px;border-radius:3px;background:'+ANALYSIS_COLORS[li%ANALYSIS_COLORS.length]+';display:inline-block;"></span>'+escapeHtml(l)+'</span>';
+  });
+  legend += '</div>';
+
+  host.innerHTML = svg + legend;
+}
+
+/* =========================================================================
+   탭3: 문제항목별 LOSS율 가로 막대 그래프
+   ========================================================================= */
+function renderIssueLossChart(list){
+  var host = $("anIssueChartHost");
+  var emptyMsg = $("anIssueEmpty");
+  if(!host) return;
+
+  var modeEl = document.querySelector('input[name="issueChartMode"]:checked');
+  var mode = modeEl ? modeEl.value : "issue";
+
+  // 전체 가용시간 합계(분모로 사용)
+  var totalAvail = 0;
+  var seenAvail = {};
+  list.forEach(function(r){
+    var key = [r.model, r.line, r.shift, r.date].join("|");
+    if(!seenAvail[key]){
+      var av = findAvailMinutes(r.model, r.line, r.shift, r.date);
+      if(av && av > 0){ totalAvail += av; seenAvail[key] = true; }
+    }
+  });
+
+  // 문제항목별 정지시간 집계
+  var issueMap = {};
+  list.forEach(function(r){
+    var key = (mode === "trans")
+      ? (getIssueTrans(r.issue, r.model, r.category, r.procSeq) || r.issue || "(미지정)")
+      : (r.issue || "(미지정)");
+    if(!issueMap[key]) issueMap[key] = 0;
+    issueMap[key] += (r.stopMinutes||0);
+  });
+
+  var items = Object.keys(issueMap).map(function(k){
+    var stop = issueMap[k];
+    var rate = totalAvail > 0 ? stop/totalAvail*100 : 0;
+    return { name: k, stop: stop, rate: rate };
+  }).filter(function(it){ return it.rate > 0; }).sort(function(a,b){ return b.rate-a.rate; }).slice(0,20);
+
+  if(!items.length){
+    host.innerHTML = "";
+    if(emptyMsg) emptyMsg.style.display = "block";
+    return;
+  }
+  if(emptyMsg) emptyMsg.style.display = "none";
+
+  var BAR_H = 24, BAR_GAP = 8;
+  var maxRate = Math.ceil(items[0].rate / 5) * 5;
+  var PAD_L = 180, PAD_R = 60, PAD_T = 20, PAD_B = 20;
+  var chartW = 520;
+  var H = PAD_T + items.length*(BAR_H+BAR_GAP) + PAD_B;
+  var W = PAD_L + chartW + PAD_R;
+
+  var svg = '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" style="font-family:sans-serif;">';
+
+  // x축 눈금선
+  for(var xi=0;xi<=5;xi++){
+    var xVal = maxRate/5*xi;
+    var xPos = PAD_L + (xVal/maxRate)*chartW;
+    svg += '<line x1="'+xPos.toFixed(1)+'" y1="'+PAD_T+'" x2="'+xPos.toFixed(1)+'" y2="'+(H-PAD_B)+'" stroke="#e3e7f0" stroke-width="1"/>';
+    svg += '<text x="'+xPos.toFixed(1)+'" y="'+(H-PAD_B+14)+'" text-anchor="middle" font-size="10" fill="#6b7390">'+xVal.toFixed(0)+'%</text>';
+  }
+
+  items.forEach(function(it, i){
+    var barY = PAD_T + i*(BAR_H+BAR_GAP);
+    var barW = (it.rate/maxRate)*chartW;
+    var color = ANALYSIS_COLORS[i % ANALYSIS_COLORS.length];
+    // 라벨
+    svg += '<text x="'+(PAD_L-6)+'" y="'+(barY+BAR_H/2+4)+'" text-anchor="end" font-size="11" fill="#16213d">'+escapeHtml(it.name.length>20?it.name.slice(0,19)+'…':it.name)+'</text>';
+    // 막대
+    svg += '<rect x="'+PAD_L+'" y="'+barY+'" width="'+barW.toFixed(1)+'" height="'+BAR_H+'" fill="'+color+'" rx="3">' +
+      '<title>'+escapeHtml(it.name)+'\nLOSS율: '+it.rate.toFixed(1)+'%\n정지시간: '+it.stop+'분</title></rect>';
+    // 값 표시
+    svg += '<text x="'+(PAD_L+barW+5).toFixed(1)+'" y="'+(barY+BAR_H/2+4)+'" font-size="11" fill="'+color+'" font-weight="bold">'+it.rate.toFixed(1)+'%</text>';
+  });
+
+  // x축
+  svg += '<line x1="'+PAD_L+'" y1="'+(H-PAD_B)+'" x2="'+(W-PAD_R)+'" y2="'+(H-PAD_B)+'" stroke="#3d4663" stroke-width="1.5"/>';
+  // y축
+  svg += '<line x1="'+PAD_L+'" y1="'+PAD_T+'" x2="'+PAD_L+'" y2="'+(H-PAD_B)+'" stroke="#3d4663" stroke-width="1.5"/>';
+
+  svg += '</svg>';
+  host.innerHTML = svg;
+}
+
+// 분석현황 탭 이벤트 바인딩
+(function(){
+  var tabs = document.querySelectorAll("#analysisTabs .tab");
+  tabs.forEach(function(tab){
+    tab.addEventListener("click", function(){
+      tabs.forEach(function(t){ t.classList.remove("active"); });
+      tab.classList.add("active");
+      var target = tab.dataset.antab;
+      document.querySelectorAll(".analysis-pane").forEach(function(p){ p.style.display = "none"; });
+      var pane = $("an-pane-" + target);
+      if(pane) pane.style.display = "block";
+    });
+  });
+  // 문제항목/번역명 라디오 변경 시 탭3 그래프 갱신
+  document.querySelectorAll('input[name="issueChartMode"]').forEach(function(radio){
+    radio.addEventListener("change", function(){
+      var list = [];
+      if(typeof records !== "undefined") list = records.filter(function(r){
+        var model = $("an-model").value;
+        var line = $("an-line").value;
+        var from = $("an-dateFrom").value;
+        var to = $("an-dateTo").value;
+        if(model && r.model !== model) return false;
+        if(line && r.line !== line) return false;
+        if(from && r.date < from) return false;
+        if(to && r.date > to) return false;
+        return true;
+      });
+      renderIssueLossChart(list);
+    });
+  });
+})();
 
 /* =========================================================================
    초기 렌더
