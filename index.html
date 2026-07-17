@@ -3672,7 +3672,7 @@ function doRecordImportOverwrite(){
   var addedMasterCounts = addMissingMasterValuesFromRows(pendingImportRows);
 
   var now = new Date().toISOString();
-  records = pendingImportRows.map(function(r){
+  var newRecords = pendingImportRows.map(function(r){
     var rec = {
       id: meta.nextId,
       date: r.date, model: r.model, line: r.line, shift: r.shift,
@@ -3686,34 +3686,47 @@ function doRecordImportOverwrite(){
   });
   persistMeta();
 
-  // onSnapshot 구독을 일시 중단합니다.
-  // 덮어쓰기 저장 도중 Firestore 변경 이벤트가 실시간으로 records를 덮어쓰는
-  // 경쟁 상태(race condition)를 막기 위함입니다. 저장 완료 후 다시 구독합니다.
+  // onSnapshot 구독 일시 중단 (race condition 방지)
   if(unsubRecords){ unsubRecords(); unsubRecords = null; }
 
-  var idsNow = {};
-  records.forEach(function(r){ idsNow[String(r.id)] = true; });
-
+  // 1단계: Firestore의 기존 문서 전체 삭제
   fbDb.collection("records").get().then(function(snap){
-    var operations = [];
+    var deleteOps = [];
     snap.forEach(function(doc){
-      if(!idsNow[doc.id]){
-        (function(docId){
-          operations.push(function(batch){ batch.delete(fbDb.collection("records").doc(docId)); });
-        })(doc.id);
-      }
+      (function(docId){
+        deleteOps.push(function(batch){ batch.delete(fbDb.collection("records").doc(docId)); });
+      })(doc.id);
     });
-    records.forEach(function(r){
+    console.log("[LineLoss] 덮어쓰기: 기존", deleteOps.length, "건 삭제 시작");
+    return commitInChunks(deleteOps);
+
+  // 2단계: 새 데이터 저장
+  }).then(function(){
+    var setOps = [];
+    newRecords.forEach(function(r){
       var data = {};
       for(var k in r){ if(k !== "id") data[k] = r[k]; }
       (function(recId, recData){
-        operations.push(function(batch){ batch.set(fbDb.collection("records").doc(String(recId)), recData); });
+        setOps.push(function(batch){ batch.set(fbDb.collection("records").doc(String(recId)), recData); });
       })(r.id, data);
     });
-    lastSyncedRecordIds = idsNow;
-    return commitInChunks(operations);
+    console.log("[LineLoss] 덮어쓰기: 신규", setOps.length, "건 저장 시작");
+    return commitInChunks(setOps);
+
+  // 3단계: 저장 완료 확인
   }).then(function(){
-    // 저장 완료 후 onSnapshot 재구독
+    // Firestore에서 실제 건수를 다시 읽어서 검증
+    return fbDb.collection("records").get();
+
+  }).then(function(verifySnap){
+    var actualCount = verifySnap.size;
+    console.log("[LineLoss] 덮어쓰기 완료: Firestore 실제 건수 =", actualCount, "/ 목표 =", newRecords.length);
+
+    records = newRecords;
+    lastSyncedRecordIds = {};
+    newRecords.forEach(function(r){ lastSyncedRecordIds[String(r.id)] = true; });
+
+    // onSnapshot 재구독
     unsubRecords = fbDb.collection("records").onSnapshot(function(snap){
       var arr = [];
       snap.forEach(function(doc){
@@ -3724,10 +3737,16 @@ function doRecordImportOverwrite(){
       records = arr;
       if(typeof onRecordsChanged === "function") onRecordsChanged();
     }, function(err){ console.error("records 재구독 오류:", err); });
+
     touchSaved();
-    finishRecordImport(records.length, addedMasterCounts, "register.import.overwrittenToast");
+    if(actualCount !== newRecords.length){
+      showToast("저장 완료(" + actualCount + "건) — 목표(" + newRecords.length + "건)와 다릅니다. 다시 시도해 주세요.", "error");
+    } else {
+      finishRecordImport(actualCount, addedMasterCounts, "register.import.overwrittenToast");
+    }
+
   }).catch(function(err){
-    // 오류 시에도 구독 재개
+    // 오류 시 구독 재개
     unsubRecords = fbDb.collection("records").onSnapshot(function(snap){
       var arr = [];
       snap.forEach(function(doc){
@@ -3738,8 +3757,8 @@ function doRecordImportOverwrite(){
       records = arr;
       if(typeof onRecordsChanged === "function") onRecordsChanged();
     }, function(e){ console.error("records 재구독 오류(복구):", e); });
-    console.error("덮어쓰기 저장 실패:", err);
-    showToast(t("toast.saveFail"), "error");
+    console.error("[LineLoss] 덮어쓰기 저장 실패:", err);
+    showToast("저장 실패: " + (err && err.message ? err.message : String(err)), "error");
   });
 }
 
