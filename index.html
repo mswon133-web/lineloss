@@ -2379,11 +2379,13 @@ function commitInChunks(operations){
   for(var i=0;i<operations.length;i+=CHUNK){ chunks.push(operations.slice(i, i+CHUNK)); }
   var p = Promise.resolve();
   chunks.forEach(function(chunk){
-    p = p.then(function(){
-      var batch = fbDb.batch();
-      chunk.forEach(function(op){ op(batch); });
-      return batch.commit();
-    });
+    (function(currentChunk){
+      p = p.then(function(){
+        var batch = fbDb.batch();
+        currentChunk.forEach(function(op){ op(batch); });
+        return batch.commit();
+      });
+    })(chunk);
   });
   return p;
 }
