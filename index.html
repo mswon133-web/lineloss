@@ -3594,6 +3594,8 @@ on("importModalConfirmOverwrite","click", function(){
     t("register.import.overwriteConfirmBody", { n: records.length }),
     function(ok){
       if(!ok) return;
+      // 확인 즉시 미리보기 모달 닫기
+      $("importModalOverlay").classList.remove("open");
       doRecordImportOverwrite();
     }
   );
