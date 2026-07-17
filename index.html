@@ -2376,18 +2376,19 @@ var lastSyncedRecordIds = null; // 마지막으로 Firestore에 반영한 id 집
 function commitInChunks(operations){
   var CHUNK = 499;
   var chunks = [];
-  for(var i=0;i<operations.length;i+=CHUNK){ chunks.push(operations.slice(i, i+CHUNK)); }
-  var p = Promise.resolve();
-  chunks.forEach(function(chunk){
-    (function(currentChunk){
-      p = p.then(function(){
-        var batch = fbDb.batch();
-        currentChunk.forEach(function(op){ op(batch); });
-        return batch.commit();
-      });
-    })(chunk);
-  });
-  return p;
+  for(var i=0;i<operations.length;i+=CHUNK){
+    chunks.push(operations.slice(i, i+CHUNK));
+  }
+  // reduce를 사용해서 각 chunk가 이전 chunk 완료 후 순차적으로 실행되도록 보장합니다.
+  // forEach+p 재할당 방식은 var의 클로저 특성상 마지막 chunk만 실행되는 버그가 있어,
+  // reduce로 완전히 교체합니다.
+  return chunks.reduce(function(prevPromise, currentChunk){
+    return prevPromise.then(function(){
+      var batch = fbDb.batch();
+      currentChunk.forEach(function(op){ op(batch); });
+      return batch.commit();
+    });
+  }, Promise.resolve());
 }
 
 function persistRecords(){
