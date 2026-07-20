@@ -2379,11 +2379,8 @@ function commitInChunks(operations){
   for(var i=0;i<operations.length;i+=CHUNK){
     chunks.push(operations.slice(i, i+CHUNK));
   }
-  // reduce를 사용해서 각 chunk가 이전 chunk 완료 후 순차적으로 실행되도록 보장합니다.
-  // forEach+p 재할당 방식은 var의 클로저 특성상 마지막 chunk만 실행되는 버그가 있어,
-  // reduce로 완전히 교체합니다.
-  return chunks.reduce(function(prevPromise, currentChunk){
-    return prevPromise.then(function(){
+  return chunks.reduce(function(prev, currentChunk){
+    return prev.then(function(){
       var batch = fbDb.batch();
       currentChunk.forEach(function(op){ op(batch); });
       return batch.commit();
@@ -3592,13 +3589,13 @@ on("importModalConfirmAppend","click", function(){
 
 on("importModalConfirmOverwrite","click", function(){
   if(!pendingImportRows.length) return;
+  // importModalOverlay를 먼저 닫아야 confirmModal이 정상적으로 표시됩니다.
+  $("importModalOverlay").classList.remove("open");
   confirmModal(
     t("register.import.overwriteConfirmTitle"),
     t("register.import.overwriteConfirmBody", { n: records.length }),
     function(ok){
       if(!ok) return;
-      // 확인 즉시 미리보기 모달 닫기
-      $("importModalOverlay").classList.remove("open");
       doRecordImportOverwrite();
     }
   );
@@ -3670,7 +3667,6 @@ function doRecordImportAppend(){
 /* "덮어쓰기" 모드: 기존에 등록되어 있던 LOSS 내역을 전부 삭제하고, 엑셀 내용으로 교체합니다. */
 function doRecordImportOverwrite(){
   var addedMasterCounts = addMissingMasterValuesFromRows(pendingImportRows);
-
   var now = new Date().toISOString();
   var newRecords = pendingImportRows.map(function(r){
     var rec = {
@@ -3686,79 +3682,49 @@ function doRecordImportOverwrite(){
   });
   persistMeta();
 
-  // onSnapshot 구독 일시 중단 (race condition 방지)
+  // onSnapshot 일시 중단 (race condition 방지)
   if(unsubRecords){ unsubRecords(); unsubRecords = null; }
 
-  // 1단계: Firestore의 기존 문서 전체 삭제
-  fbDb.collection("records").get().then(function(snap){
-    var deleteOps = [];
-    snap.forEach(function(doc){
-      (function(docId){
-        deleteOps.push(function(batch){ batch.delete(fbDb.collection("records").doc(docId)); });
-      })(doc.id);
-    });
-    console.log("[LineLoss] 덮어쓰기: 기존", deleteOps.length, "건 삭제 시작");
-    return commitInChunks(deleteOps);
-
-  // 2단계: 새 데이터 저장
-  }).then(function(){
-    var setOps = [];
-    newRecords.forEach(function(r){
-      var data = {};
-      for(var k in r){ if(k !== "id") data[k] = r[k]; }
-      (function(recId, recData){
-        setOps.push(function(batch){ batch.set(fbDb.collection("records").doc(String(recId)), recData); });
-      })(r.id, data);
-    });
-    console.log("[LineLoss] 덮어쓰기: 신규", setOps.length, "건 저장 시작");
-    return commitInChunks(setOps);
-
-  // 3단계: 저장 완료 확인
-  }).then(function(){
-    // Firestore에서 실제 건수를 다시 읽어서 검증
-    return fbDb.collection("records").get();
-
-  }).then(function(verifySnap){
-    var actualCount = verifySnap.size;
-    console.log("[LineLoss] 덮어쓰기 완료: Firestore 실제 건수 =", actualCount, "/ 목표 =", newRecords.length);
-
-    records = newRecords;
-    lastSyncedRecordIds = {};
-    newRecords.forEach(function(r){ lastSyncedRecordIds[String(r.id)] = true; });
-
-    // onSnapshot 재구독
+  function resubscribe(){
     unsubRecords = fbDb.collection("records").onSnapshot(function(snap){
       var arr = [];
       snap.forEach(function(doc){
-        var data = doc.data();
-        data.id = Number(doc.id);
-        arr.push(data);
+        var d = doc.data(); d.id = Number(doc.id); arr.push(d);
       });
       records = arr;
       if(typeof onRecordsChanged === "function") onRecordsChanged();
     }, function(err){ console.error("records 재구독 오류:", err); });
+  }
 
+  // 1단계: 기존 문서 전체 삭제
+  fbDb.collection("records").get()
+  .then(function(snap){
+    var delOps = [];
+    snap.forEach(function(doc){
+      (function(id){ delOps.push(function(b){ b.delete(fbDb.collection("records").doc(id)); }); })(doc.id);
+    });
+    return commitInChunks(delOps);
+  })
+  // 2단계: 새 문서 전체 저장
+  .then(function(){
+    var setOps = newRecords.map(function(r){
+      var data = {};
+      for(var k in r){ if(k !== "id") data[k] = r[k]; }
+      return (function(id, d){ return function(b){ b.set(fbDb.collection("records").doc(String(id)), d); }; })(r.id, data);
+    });
+    return commitInChunks(setOps);
+  })
+  // 완료
+  .then(function(){
+    records = newRecords;
+    resubscribe();
     touchSaved();
-    if(actualCount !== newRecords.length){
-      showToast("저장 완료(" + actualCount + "건) — 목표(" + newRecords.length + "건)와 다릅니다. 다시 시도해 주세요.", "error");
-    } else {
-      finishRecordImport(actualCount, addedMasterCounts, "register.import.overwrittenToast");
-    }
-
-  }).catch(function(err){
-    // 오류 시 구독 재개
-    unsubRecords = fbDb.collection("records").onSnapshot(function(snap){
-      var arr = [];
-      snap.forEach(function(doc){
-        var data = doc.data();
-        data.id = Number(doc.id);
-        arr.push(data);
-      });
-      records = arr;
-      if(typeof onRecordsChanged === "function") onRecordsChanged();
-    }, function(e){ console.error("records 재구독 오류(복구):", e); });
-    console.error("[LineLoss] 덮어쓰기 저장 실패:", err);
-    showToast("저장 실패: " + (err && err.message ? err.message : String(err)), "error");
+    finishRecordImport(newRecords.length, addedMasterCounts, "register.import.overwrittenToast");
+  })
+  .catch(function(err){
+    resubscribe();
+    console.error("[LineLoss] 덮어쓰기 실패:", err);
+    showToast(t("toast.saveFail"), "error");
   });
 }
 
@@ -5870,14 +5836,22 @@ function renderLineLossChart(list){
   // 날짜별 LINE별 정지시간/가용시간 집계
   var dateLineMap = {};
   var lineSet = {};
+  var seenAvail = {}; // 중복 가용시간 방지
   list.forEach(function(r){
     var date = r.date || "";
     var line = r.line || "(미지정)";
     if(!dateLineMap[date]) dateLineMap[date] = {};
     if(!dateLineMap[date][line]) dateLineMap[date][line] = { stop: 0, avail: 0 };
     dateLineMap[date][line].stop += (r.stopMinutes||0);
-    var av = findAvailMinutes(r.model, r.line, r.shift, r.date);
-    if(av && av > 0) dateLineMap[date][line].avail += av;
+    // 같은 날짜/LINE/SHIFT 조합의 가용시간은 한 번만 더함 (중복 방지)
+    var availKey = [date, line, r.shift||""].join("|");
+    if(!seenAvail[availKey]){
+      var av = findAvailMinutes(r.model, r.line, r.shift, r.date);
+      if(av && av > 0){
+        dateLineMap[date][line].avail += av;
+        seenAvail[availKey] = true;
+      }
+    }
     lineSet[line] = true;
   });
 
