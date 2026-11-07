@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LINE LOSS 문제·대책 관리</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --navy-900:#101a30;--navy-800:#16213d;--navy-700:#1c2a4a;--navy-600:#28396b;--navy-500:#3a4f8a;
+  --line:#e3e7f0;--line-soft:#eef1f7;--bg:#f5f6fa;--surface:#ffffff;
+  --ink-900:#16213d;--ink-700:#3d4663;--ink-500:#6b7390;--ink-400:#9aa1b9;
+  --amber:#e8762c;--amber-soft:#fdeee2;--green:#1f8a5c;--green-soft:#e4f5ec;
+  --red:#c5402e;--red-soft:#fbe7e3;--blue:#2d62a8;--blue-soft:#e7eef9;
+  --purple:#7c3aed;--purple-soft:#f3e8fb;
+  --radius:10px;--radius-sm:6px;
+  --shadow-sm:0 1px 2px rgba(16,26,48,.06);--shadow-md:0 4px 16px rgba(16,26,48,.08);
+  --mono:'SF Mono',Consolas,'Courier New',monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard','Malgun Gothic','맑은 고딕',sans-serif;background:var(--bg);color:var(--ink-900);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+button{font-family:inherit;}
+::selection{background:#cfe0ff;}
+
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh;}
+.sidebar{background:linear-gradient(180deg,var(--navy-900),var(--navy-700) 70%,var(--navy-800));color:#fff;padding:22px 16px 20px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1);}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--amber),#c9571a);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;letter-spacing:-.5px;flex-shrink:0;box-shadow:0 2px 8px rgba(232,118,44,.35);}
+.brand-text{display:flex;flex-direction:column;line-height:1.25;}
+.brand-text .t1{font-size:13.5px;font-weight:700;letter-spacing:.3px;}
+.brand-text .t2{font-size:10.5px;color:rgba(255,255,255,.55);letter-spacing:.5px;}
+.lang-switch{margin-bottom:14px;}
+.lang-switch select{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:7px;padding:7px 28px 7px 10px;font-size:12.5px;font-family:inherit;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;background-size:14px;}
+.lang-switch select:focus{outline:none;border-color:rgba(255,255,255,.35);}
+.lang-switch select option{color:#16213d;}
+.nav{display:flex;flex-direction:column;gap:3px;margin-top:14px;}
+.nav-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:8px;color:rgba(255,255,255,.68);cursor:pointer;user-select:none;font-size:13.5px;font-weight:500;transition:background .15s,color .15s;position:relative;white-space:nowrap;}
+.nav-item svg{width:17px;height:17px;flex-shrink:0;opacity:.85;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav-item.active{background:rgba(255,255,255,.1);color:#fff;}
+.nav-item.active::before{content:'';position:absolute;left:-16px;top:8px;bottom:8px;width:3px;background:var(--amber);border-radius:0 3px 3px 0;}
+.sidebar-foot{margin-top:auto;padding:14px 10px 4px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;color:rgba(255,255,255,.4);display:flex;flex-direction:column;gap:6px;}
+.save-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,.55);}
+.save-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(31,138,92,.2);}
+
+.main{padding:26px 32px 60px;max-width:1600px;min-width:0;}
+.topbar{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:14px;}
+.page-title{font-size:21px;font-weight:800;color:var(--navy-800);letter-spacing:-.2px;}
+.page-sub{font-size:12.5px;color:var(--ink-500);margin-top:3px;}
+.topbar-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink-700);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn svg{width:14px;height:14px;}
+.btn:hover{border-color:var(--navy-500);color:var(--navy-700);background:var(--line-soft);}
+.btn-primary{background:var(--navy-700);border-color:var(--navy-700);color:#fff;}
+.btn-primary:hover{background:var(--navy-600);border-color:var(--navy-600);color:#fff;}
+.btn-danger{color:var(--red);border-color:var(--red-soft);}
+.btn-danger:hover{background:var(--red-soft);border-color:var(--red);color:var(--red);}
+.btn-sm{padding:6px 11px;font-size:12px;}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:10px;}
+.card-head h2{font-size:14.5px;font-weight:700;color:var(--navy-800);margin:0;}
+.card-body{padding:18px;}
+
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px;}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden;min-width:0;}
+.kpi .k-label{font-size:11.5px;color:var(--ink-500);font-weight:600;letter-spacing:.2px;}
+.kpi .k-val{font-size:23px;font-weight:800;color:var(--navy-800);margin-top:6px;font-family:var(--mono);letter-spacing:-1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpi .k-val.txt{font-family:inherit;font-size:17px;letter-spacing:0;padding-top:4px;}
+.kpi .k-unit{font-size:12px;color:var(--ink-400);font-weight:600;margin-left:3px;letter-spacing:0;}
+.kpi .k-bar{position:absolute;left:0;top:0;bottom:0;width:3px;}
+.kpi.c1 .k-bar{background:var(--navy-600);}
+.kpi.c2 .k-bar{background:var(--amber);}
+.kpi.c3 .k-bar{background:var(--red);}
+.kpi.c4 .k-bar{background:var(--navy-800);}
+.kpi.c5 .k-bar{background:var(--blue);}
+.kpi.c6 .k-bar{background:var(--green);}
+
+.f-field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.f-field label{font-size:12px;font-weight:700;color:var(--ink-700);display:flex;align-items:center;gap:5px;}
+.f-field label .req{color:var(--red);font-size:11px;}
+.f-field input,.f-field select,.f-field textarea{border:1px solid var(--line);border-radius:7px;padding:9px 11px;font-size:13.5px;color:var(--ink-900);background:#fbfcfe;transition:border-color .15s,background .15s;font-family:inherit;width:100%;}
+.f-field input:focus,.f-field select:focus,.f-field textarea:focus{outline:none;border-color:var(--navy-500);background:#fff;box-shadow:0 0 0 3px rgba(58,79,138,.1);}
+.f-field textarea{resize:vertical;min-height:70px;}
+.f-field .calc-readout{border:1px dashed var(--line);border-radius:7px;padding:9px 11px;font-size:13.5px;background:var(--line-soft);color:var(--navy-700);font-weight:700;font-family:var(--mono);min-height:40px;}
+.calc-readout.err{color:var(--red);background:var(--red-soft);border-color:#f3c9c2;font-family:inherit;font-size:12.5px;}
+.f-hint{font-size:10.5px;color:var(--ink-400);margin-top:1px;}
+
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.filter-bar .f-field{min-width:112px;flex:1;}
+.filter-bar .f-field.dt{min-width:190px;flex:1.3;}
+.filter-bar .f-field.grow{flex:1.8;min-width:200px;}
+
+.table-wrap{max-height:62vh;overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);}
+table{width:100%;border-collapse:collapse;font-size:11.8px;min-width:1500px;}
+thead th{background:var(--navy-800);color:#fff;font-weight:600;text-align:left;padding:9px 8px;white-space:nowrap;position:sticky;top:0;font-size:11.3px;letter-spacing:.2px;z-index:2;}
+tbody td{padding:8px;border-bottom:1px solid var(--line-soft);color:var(--ink-700);vertical-align:middle;}
+tbody tr:hover{background:#f8f9fc;}
+tbody tr:last-child td{border-bottom:none;}
+td.nw{white-space:nowrap;}
+thead th:last-child{position:sticky;right:0;z-index:3;}
+tbody td:last-child{position:sticky;right:0;background:#fff;box-shadow:-6px 0 8px -6px rgba(16,26,48,.15);}
+tbody tr:hover td:last-child{background:#f8f9fc;}
+td.txt{min-width:140px;max-width:240px;white-space:pre-wrap;word-break:break-word;}
+.cell-num{font-family:var(--mono);text-align:right;font-weight:700;color:var(--navy-700);white-space:nowrap;}
+.mono{font-family:var(--mono);}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.b-cat-설비{background:var(--blue-soft);color:var(--blue);}
+.b-cat-치공구{background:var(--amber-soft);color:var(--amber);}
+.b-cat-JIG{background:var(--purple-soft);color:var(--purple);}
+.b-cat-PACK{background:var(--green-soft);color:var(--green);}
+.b-cat-검사기{background:#e0f4f8;color:#0e7490;}
+.b-cat-기타{background:var(--line-soft);color:var(--ink-500);}
+.b-res-완료{background:var(--green-soft);color:var(--green);}
+.b-res-진행중{background:var(--blue-soft);color:var(--blue);}
+.b-res-개선필요{background:var(--red-soft);color:var(--red);}
+.shift-pill{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:6px;font-weight:800;font-size:11px;font-family:var(--mono);}
+.shift-1{background:var(--amber-soft);color:var(--amber);}
+.shift-2{background:var(--navy-700);color:#fff;}
+.att-link{display:inline-flex;align-items:center;gap:3px;margin-top:4px;font-size:10.5px;font-weight:700;color:var(--blue);background:var(--blue-soft);padding:2px 7px;border-radius:5px;cursor:pointer;border:none;}
+.att-link svg{width:11px;height:11px;}
+.att-link:hover{background:#d5e2f5;}
+.row-actions{display:flex;gap:6px;justify-content:center;}
+.icon-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-500);transition:all .15s;}
+.icon-btn:hover{border-color:var(--navy-500);color:var(--navy-700);background:var(--line-soft);}
+.icon-btn.del:hover{border-color:var(--red);color:var(--red);background:var(--red-soft);}
+.icon-btn svg{width:13px;height:13px;}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;color:var(--ink-400);text-align:center;gap:10px;}
+.empty-state svg{width:40px;height:40px;opacity:.4;}
+.empty-state .e-title{font-size:13.5px;font-weight:700;color:var(--ink-500);}
+.empty-state .e-sub{font-size:12px;}
+
+.toast-wrap{position:fixed;bottom:22px;right:22px;display:flex;flex-direction:column;gap:8px;z-index:3000;}
+.toast{background:var(--navy-800);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:var(--shadow-md);min-width:220px;animation:slideIn .25s ease;}
+.toast.success{background:var(--green);}
+.toast.error{background:var(--red);}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(16,26,48,.5);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px);padding:16px;}
+.modal-overlay.open{display:flex;}
+#confirmOverlay{z-index:1100;}
+#viewerOverlay{z-index:1050;}
+.modal{background:#fff;border-radius:12px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 50px rgba(16,26,48,.25);max-height:calc(100vh - 32px);overflow:auto;}
+.modal h3{margin:0 0 8px;font-size:16px;color:var(--navy-800);}
+.modal p{font-size:13px;color:var(--ink-500);line-height:1.6;margin:0 0 18px;white-space:pre-line;}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.modal.wide{max-width:980px;padding:0;display:flex;flex-direction:column;}
+.modal.wide .m-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2;border-radius:12px 12px 0 0;}
+.modal.wide .m-head h3{margin:0;}
+.modal.wide .m-body{padding:20px 22px;}
+.modal.wide .m-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#fff;border-radius:0 0 12px 12px;}
+.m-close{width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink-500);display:flex;align-items:center;justify-content:center;}
+.m-close:hover{color:var(--red);border-color:var(--red);}
+.m-close svg{width:14px;height:14px;}
+.form-section{margin-bottom:18px;}
+.form-section:last-child{margin-bottom:0;}
+.fs-title{font-size:11.5px;font-weight:800;color:var(--amber);letter-spacing:.4px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.fs-title::after{content:'';flex:1;height:1px;background:var(--line);}
+.form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 16px;}
+.span-2{grid-column:span 2;}
+.span-4{grid-column:span 4;}
+
+.pill-group{display:flex;gap:6px;flex-wrap:wrap;}
+.pill{padding:7px 13px;border-radius:20px;border:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--ink-500);cursor:pointer;background:#fff;transition:all .15s;}
+.pill:hover{border-color:var(--navy-500);color:var(--navy-700);}
+.pill.active{background:var(--navy-700);color:#fff;border-color:var(--navy-700);}
+.pill.r-완료.active{background:var(--green);border-color:var(--green);}
+.pill.r-진행중.active{background:var(--blue);border-color:var(--blue);}
+.pill.r-개선필요.active{background:var(--red);border-color:var(--red);}
+
+.drop{margin-top:8px;border:1.5px dashed var(--line);border-radius:8px;padding:10px;background:#fbfcfe;transition:border-color .15s,background .15s;}
+.drop.over{border-color:var(--navy-500);background:var(--blue-soft);}
+.drop-top{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-400);flex-wrap:wrap;}
+.drop-top .btn{padding:5px 10px;font-size:11.5px;}
+.att-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.att-list:empty{display:none;}
+.att-item{position:relative;width:84px;border:1px solid var(--line);border-radius:7px;background:#fff;overflow:hidden;cursor:pointer;}
+.att-item .thumb{width:100%;height:62px;object-fit:cover;display:block;background:var(--line-soft);}
+.att-item .fileicon{height:62px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--navy-600);background:var(--line-soft);font-family:var(--mono);}
+.att-item .nm{font-size:10px;padding:3px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-700);}
+.att-item .x{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(16,26,48,.7);color:#fff;font-size:11px;line-height:18px;cursor:pointer;padding:0;}
+.att-item .x:hover{background:var(--red);}
+
+.viewer-grid{display:flex;flex-direction:column;gap:14px;}
+.viewer-grid h4{margin:0 0 6px;font-size:12px;color:var(--amber);letter-spacing:.3px;}
+.viewer-grid .vtext{font-size:13px;color:var(--ink-700);white-space:pre-wrap;background:var(--line-soft);border-radius:7px;padding:10px 12px;}
+.viewer-imgs{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;}
+.viewer-imgs a.img{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.viewer-imgs a.img img{display:block;max-width:280px;max-height:220px;}
+.viewer-imgs a.file{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--navy-700);text-decoration:none;font-weight:600;}
+.viewer-imgs a.file:hover{background:var(--line-soft);}
+.big-img{max-width:100%;max-height:75vh;display:block;margin:0 auto;border-radius:8px;}
+
+.section{display:none;}
+.section.active{display:block;}
+.analysis-placeholder{padding:60px 30px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;}
+.analysis-placeholder .ap-icon{width:64px;height:64px;border-radius:16px;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center;}
+.analysis-placeholder .ap-icon svg{width:30px;height:30px;}
+.analysis-placeholder h3{font-size:16px;color:var(--navy-800);margin:0;}
+.analysis-placeholder p{font-size:13px;color:var(--ink-500);max-width:420px;line-height:1.7;margin:0;}
+
+/* ===== 기본정보 ===== */
+.tabbar{display:flex;gap:4px;border-bottom:1px solid var(--line);padding:0 18px;background:#fbfcfe;border-radius:var(--radius) var(--radius) 0 0;overflow-x:auto;}
+.tab{padding:13px 16px;font-size:13px;font-weight:600;color:var(--ink-500);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;white-space:nowrap;display:flex;align-items:center;gap:7px;user-select:none;}
+.tab svg{width:15px;height:15px;}
+.tab:hover{color:var(--navy-700);}
+.tab.active{color:var(--navy-800);border-bottom-color:var(--amber);}
+.tab .cnt{font-size:10.5px;font-weight:700;font-family:var(--mono);background:var(--line-soft);color:var(--ink-500);padding:1px 7px;border-radius:10px;}
+.tab.active .cnt{background:var(--amber-soft);color:var(--amber);}
+.m-form-box{border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:#fbfcfe;margin-bottom:18px;transition:border-color .15s,background .15s;}
+.m-form-box.editing{border-color:var(--navy-500);background:var(--blue-soft);box-shadow:0 0 0 3px rgba(58,79,138,.08);}
+.m-form-title{font-size:12.5px;font-weight:800;color:var(--navy-700);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.m-form-title .tag{font-size:10.5px;font-weight:700;color:var(--amber);background:var(--amber-soft);padding:2px 7px;border-radius:4px;}
+.m-form-box.editing .m-form-title .tag{color:#fff;background:var(--navy-600);}
+.m-form-box .f-field input,.m-form-box .f-field select{background:#fff;}
+.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+.master-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.master-toolbar .cnt{font-size:12px;color:var(--ink-500);}
+.master-toolbar .cnt b{color:var(--navy-700);}
+.master-toolbar input{border:1px solid var(--line);border-radius:7px;padding:8px 11px;font-size:13px;width:240px;max-width:100%;font-family:inherit;background:#fbfcfe;}
+.master-toolbar input:focus{outline:none;border-color:var(--navy-500);background:#fff;}
+table.mtable{min-width:760px;font-size:12.5px;}
+table.mtable tbody td{padding:9px 10px;}
+tr.row-editing td{background:var(--blue-soft)!important;}
+.st-on{background:var(--green-soft);color:var(--green);}
+.st-off{background:var(--line-soft);color:var(--ink-400);}
+.usage{font-family:var(--mono);font-weight:700;color:var(--navy-700);}
+.usage.zero{color:var(--ink-400);font-weight:500;}
+/* ===== 데이터 관리 / 백업 ===== */
+.helper-banner{display:flex;gap:12px;align-items:center;background:var(--amber-soft);border:1px solid #f6d3b8;border-radius:var(--radius);padding:13px 16px;font-size:13px;color:#8a4310;margin-bottom:16px;flex-wrap:wrap;}
+.helper-banner svg{width:18px;height:18px;flex-shrink:0;color:var(--amber);}
+.helper-banner .hb-text{flex:1;min-width:240px;line-height:1.55;}
+.helper-banner .hb-text b{color:#6b330b;}
+.helper-banner .hb-x{background:none;border:none;color:#b8743f;font-size:18px;cursor:pointer;padding:0 4px;}
+.dp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.dp-card{border:1px solid var(--line);border-radius:var(--radius);padding:18px;background:#fbfcfe;display:flex;flex-direction:column;gap:12px;}
+.dp-card.main{border-color:#cfe0f7;background:var(--blue-soft);}
+.dp-card h3{margin:0;font-size:14px;color:var(--navy-800);display:flex;align-items:center;gap:8px;}
+.dp-card h3 .tag{font-size:10.5px;font-weight:700;color:#fff;background:var(--amber);padding:2px 7px;border-radius:4px;}
+.dp-card p{margin:0;font-size:12.5px;color:var(--ink-500);line-height:1.7;}
+.dp-card .btns{display:flex;gap:8px;flex-wrap:wrap;}
+.dp-status{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;padding:9px 12px;border-radius:8px;background:#fff;border:1px solid var(--line);}
+.dp-status .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dp-status.on{color:var(--green);} .dp-status.on .dot{background:var(--green);box-shadow:0 0 0 3px rgba(31,138,92,.18);}
+.dp-status.warn{color:var(--amber);} .dp-status.warn .dot{background:var(--amber);}
+.dp-status.off{color:var(--ink-500);} .dp-status.off .dot{background:var(--ink-400);}
+.dp-status .sub{font-weight:500;color:var(--ink-500);margin-left:auto;font-size:11.5px;}
+.dp-steps{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink-700);line-height:1.8;}
+.auto-status{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;padding:5px 7px;margin:0 -7px;border-radius:6px;line-height:1.35;}
+.auto-status:hover{background:rgba(255,255,255,.07);}
+.auto-status .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.auto-status.on{color:rgba(255,255,255,.75);} .auto-status.on .dot{background:var(--green);box-shadow:0 0 0 3px rgba(31,138,92,.25);}
+.auto-status.warn{color:#ffc79e;} .auto-status.warn .dot{background:var(--amber);}
+.auto-status.off{color:rgba(255,255,255,.5);} .auto-status.off .dot{background:rgba(255,255,255,.35);}
+@media (max-width:900px){.dp-grid{grid-template-columns:1fr;}.dp-stats{grid-template-columns:repeat(2,1fr);}}
+/* ===== 카카오 알림 ===== */
+.kk-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.kk-row .f-field{flex:1;min-width:200px;}
+.kk-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-700);padding:7px 0;cursor:pointer;user-select:none;}
+.kk-check input{width:16px;height:16px;accent-color:var(--navy-700);cursor:pointer;}
+.kk-check .num{width:64px;border:1px solid var(--line);border-radius:6px;padding:4px 7px;font-size:13px;font-family:var(--mono);}
+.kk-switch{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.kk-switch button{border:none;background:#fff;padding:8px 16px;font-size:12.5px;font-weight:700;color:var(--ink-500);cursor:pointer;}
+.kk-switch button.on{background:var(--green);color:#fff;}
+.kk-switch button.off.on{background:var(--ink-500);}
+.kk-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.kk-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;background:#fff;border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--ink-700);}
+.kk-chip small{font-family:var(--mono);color:var(--ink-400);font-weight:500;}
+.kk-preview{background:#b2c7d9;border-radius:10px;padding:14px;}
+.kk-bubble{background:#fff;border-radius:10px;overflow:hidden;max-width:330px;box-shadow:0 1px 2px rgba(0,0,0,.08);}
+.kk-bubble .hd{background:#fee500;color:#191919;font-size:12px;font-weight:800;padding:8px 12px;}
+.kk-bubble .bd{padding:12px;font-size:12.5px;line-height:1.65;color:#191919;white-space:pre-wrap;word-break:break-word;}
+.kk-tpl{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12px;font-family:var(--mono);white-space:pre-wrap;color:var(--ink-700);max-height:240px;overflow:auto;}
+.kk-log{width:100%;min-width:0;font-size:12px;}
+.kk-log td,.kk-log th{padding:7px 8px;}
+.dp-card.span2{grid-column:span 2;}
+@media (max-width:900px){.dp-card.span2{grid-column:span 1;}}
+/* ===== 카카오톡 공유 ===== */
+.ks-logo{background:#fee500;color:#3c1e1e;font-size:10px;font-weight:900;padding:4px 6px;border-radius:6px;letter-spacing:.3px;}
+.ks-btn{background:#fee500;border-color:#fee500;color:#191919;}
+.ks-btn:hover{background:#f5dc00;border-color:#f5dc00;color:#191919;}
+.ks-btn svg{width:15px;height:15px;}
+#kshareOverlay{z-index:1040;}
+.kk-chip.sel{background:var(--navy-700);border-color:var(--navy-700);color:#fff;cursor:pointer;}
+.kk-chip.pick{cursor:pointer;}
+.kk-chip.pick:hover{border-color:var(--navy-500);}
+.kk-chip.sel small{color:rgba(255,255,255,.6);}
+.ks-how{margin-top:14px;background:var(--line-soft);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--ink-700);line-height:1.7;}
+.ks-how b{color:var(--navy-800);}
+.icon-btn.kshare{color:#8a6d00;}
+.icon-btn.kshare:hover{background:#fff7b3;border-color:#e6cf00;color:#3c1e1e;}
+@media (max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr);}}
+@media (max-width:900px){.form-grid{grid-template-columns:repeat(2,1fr);}.span-4{grid-column:span 2;}}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;}
+  .sidebar{position:relative;height:auto;flex-direction:row;align-items:center;padding:12px 14px;gap:10px;flex-wrap:wrap;}
+  .brand{border-bottom:none;padding:0;margin:0;}
+  .lang-switch{margin:0;margin-left:auto;width:120px;}
+  .nav{flex-direction:row;margin-top:0;overflow-x:auto;width:100%;}
+  .nav-item.active::before{display:none;}
+  .sidebar-foot{display:none;}
+  .main{padding:18px 16px 40px;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .form-grid{grid-template-columns:1fr;}
+  .span-2,.span-4{grid-column:span 1;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">LL</div>
+      <div class="brand-text">
+        <span class="t1">LINE LOSS</span>
+        <span class="t2" data-i18n="brand.sub">문제·대책 관리 시스템</span>
+      </div>
+    </div>
+    <div class="lang-switch">
+      <select id="langSelect">
+        <option value="ko">한국어</option>
+        <option value="en">English</option>
+        <option value="vi">Tiếng Việt</option>
+      </select>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" data-target="page-register">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6M9 16h6M9 8h6M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"/></svg>
+        <span data-i18n="nav.register">등록 / 현황조회</span>
+      </div>
+      <div class="nav-item" data-target="page-analysis">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 3 5-8"/></svg>
+        <span data-i18n="nav.analysis">분석현황</span>
+      </div>
+      <div class="nav-item" data-target="page-master">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 7.04 4.3l.06.06A1.65 1.65 0 0 0 8.91 4.7H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.3 9c.13.39.43.7.82.86.39.16.6.16.99.16H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        <span data-i18n="nav.master">기본정보</span>
+      </div>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="save-indicator"><span class="save-dot"></span><span data-i18n="footer.saved">이 PC에 자동저장됨</span></div>
+      <div id="lastSavedTime">—</div>
+      <div class="auto-status off" id="autoStatus" style="display:none;"><span class="dot"></span><span id="autoStatusText"></span></div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="main">
+    <!-- ============ PAGE 1: 등록/현황조회 ============ -->
+    <section id="page-register" class="section active">
+      <div class="topbar">
+        <div>
+          <div class="page-title" data-i18n="nav.register">등록 / 현황조회</div>
+          <div class="page-sub" data-i18n="register.subtitle">LINE LOSS 문제 항목과 대책 현황을 등록하고 누적 현황을 조회합니다</div>
+        </div>
+        <div class="topbar-actions">
+          <input type="file" id="fileImport" accept=".xlsx,.xls" style="display:none;">
+          <button class="btn" id="btnImport">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            <span data-i18n="btn.import">엑셀 업로드</span>
+          </button>
+          <button class="btn" id="btnExport">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            <span data-i18n="btn.export">엑셀로 내보내기</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="helper-banner" id="emptyBanner" style="display:none;"></div>
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2 data-i18n="register.cardTitle">현황 조회</h2>
+          <button class="btn btn-primary btn-sm" id="btnNew">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            <span data-i18n="btn.new">새 LOSS 등록</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="filter-bar" style="margin-bottom:16px;">
+            <div class="f-field dt"><label data-i18n="flt.from">시작일시</label><input type="datetime-local" id="ft-from"></div>
+            <div class="f-field dt"><label data-i18n="flt.to">종료일시</label><input type="datetime-local" id="ft-to"></div>
+            <div class="f-field"><label data-i18n="col.factory">공장</label><select id="ft-factory"></select></div>
+            <div class="f-field"><label data-i18n="col.model">Model명</label><select id="ft-model"></select></div>
+            <div class="f-field"><label data-i18n="col.line">Line명</label><select id="ft-line"></select></div>
+            <div class="f-field"><label>SHIFT</label><select id="ft-shift"></select></div>
+            <div class="f-field"><label data-i18n="col.category">구분</label><select id="ft-category"></select></div>
+            <div class="f-field"><label data-i18n="col.result">결과</label><select id="ft-result"></select></div>
+            <div class="f-field grow"><label data-i18n="flt.keyword">검색 (공정명·품명·문제항목·대책·담당)</label><input type="text" id="ft-keyword" data-i18n-ph="flt.keywordPh" placeholder="검색어 입력"></div>
+            <div class="f-field" style="flex:0 0 auto;min-width:0;"><label>&nbsp;</label><button class="btn btn-sm" id="btnReset" style="justify-content:center;padding:9px 14px;" data-i18n="flt.reset">필터 초기화</button></div>
+          </div>
+          <div style="font-size:11.5px;color:var(--ink-400);margin:-6px 0 14px;" data-i18n="flt.hint">시작일시·종료일시는 날짜만 입력해도 되고(시간 비워두면 0시 ~ 24시로 간주), 시각까지 지정하면 그 시간대에 걸쳐 있는 LOSS 건만 조회됩니다.</div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr id="theadRow"></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 12h6M9 16h6M9 8h6M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"/></svg>
+              <div class="e-title" id="emptyTitle"></div>
+              <div class="e-sub" id="emptySub"></div>
+            </div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:var(--ink-500);" id="countText"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE 2: 분석현황 (추후) ============ -->
+    <section id="page-analysis" class="section">
+      <div class="topbar"><div><div class="page-title" data-i18n="nav.analysis">분석현황</div></div></div>
+      <div class="card"><div class="analysis-placeholder">
+        <div class="ap-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 3 5-8"/></svg></div>
+        <h3 data-i18n="ph.title">준비 중인 화면입니다</h3>
+        <p data-i18n="ph.analysis">분석현황 화면은 추가 지시에 따라 구성할 예정입니다.</p>
+      </div></div>
+    </section>
+
+    <!-- ============ PAGE 3: 기본정보 ============ -->
+    <section id="page-master" class="section">
+      <div class="topbar">
+        <div>
+          <div class="page-title" data-i18n="nav.master">기본정보</div>
+          <div class="page-sub" data-i18n="master.subtitle">모델 · 라인 · 직원 정보를 등록하고 관리합니다 (등록 화면의 선택 목록에 사용됩니다)</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tabbar" id="mTabs">
+          <div class="tab active" data-mt="model"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg><span data-i18n="tab.model">모델 등록</span><span class="cnt" id="cnt-model">0</span></div>
+          <div class="tab" data-mt="line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M4 20V10l5 3V10l5 3V10l5 3v7"/></svg><span data-i18n="tab.line">라인 등록</span><span class="cnt" id="cnt-line">0</span></div>
+          <div class="tab" data-mt="staff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span data-i18n="tab.staff">직원 등록</span><span class="cnt" id="cnt-staff">0</span></div>
+          <div class="tab" data-mt="kakao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.8 5.3 4.6 6.7L5.5 21l4-2.6c.8.1 1.6.2 2.5.2 5.5 0 10-3.6 10-8S17.5 3 12 3Z"/></svg><span data-i18n="tab.kakao">카카오 알림</span></div>
+          <div class="tab" data-mt="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg><span data-i18n="tab.data">데이터 백업/복원</span></div>
+        </div>
+        <div class="card-body" id="dataPane" style="display:none;"></div>
+        <div class="card-body" id="kakaoPane" style="display:none;"></div>
+        <div class="card-body" id="masterPane">
+          <div class="m-form-box" id="mFormBox"></div>
+          <div class="master-toolbar">
+            <div class="cnt" id="mCount"></div>
+            <input type="text" id="m-search" data-i18n-ph="m.searchPh" placeholder="검색">
+          </div>
+          <div class="table-wrap">
+            <table class="mtable"><thead><tr id="mHead"></tr></thead><tbody id="mBody"></tbody></table>
+            <div class="empty-state" id="mEmpty" style="display:none;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 12h6M9 16h6M9 8h6M5 21V5a2 2 0 0 1 2-2h7l5 5v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"/></svg>
+              <div class="e-title" id="mEmptyTitle"></div><div class="e-sub" id="mEmptySub"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===================== 등록/수정 모달 ===================== -->
+<div class="modal-overlay" id="formOverlay">
+  <div class="modal wide">
+    <div class="m-head">
+      <h3 id="formTitle">새 LOSS 등록</h3>
+      <button class="m-close" data-close="formOverlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="m-body">
+      <div class="form-section">
+        <div class="fs-title" data-i18n="fs.basic">기본 정보</div>
+        <div class="form-grid">
+          <div class="f-field"><label><span data-i18n="col.date">일자</span><span class="req">*</span></label><input type="date" id="f-date"></div>
+          <div class="f-field"><label><span data-i18n="col.factory">공장</span><span class="req">*</span></label>
+            <div class="pill-group" id="f-factory"></div></div>
+          <div class="f-field"><label>SHIFT</label><div class="calc-readout" id="f-shift-view">—</div><div class="f-hint" data-i18n="hint.shift">Start 시각 기준 08:00~20:00 → 1, 그 외 → 2 (자동)</div></div>
+          <div class="f-field"><label><span data-i18n="col.model">Model명</span><span class="req">*</span></label><select id="f-model"></select><div class="f-hint" data-i18n="hint.model">기본정보에 등록된 모델</div></div>
+          <div class="f-field"><label><span data-i18n="col.line">Line명</span><span class="req">*</span></label><input type="text" id="f-line" list="dl-line" autocomplete="off"></div>
+          <div class="f-field"><label data-i18n="col.process">공정명</label><input type="text" id="f-process" list="dl-process" autocomplete="off"></div>
+          <div class="f-field span-2"><label data-i18n="col.item">품명</label><input type="text" id="f-item" list="dl-item" autocomplete="off"></div>
+          <div class="f-field span-4"><label><span data-i18n="col.category">구분</span><span class="req">*</span></label><div class="pill-group" id="f-category"></div></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="fs-title" data-i18n="fs.issue">문제 · 대책</div>
+        <div class="form-grid">
+          <div class="f-field span-2">
+            <label><span data-i18n="col.problem">문제 항목</span><span class="req">*</span></label>
+            <textarea id="f-problem"></textarea>
+            <div class="drop" data-kind="problem">
+              <div class="drop-top"><button type="button" class="btn att-pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span data-i18n="att.add">그림/파일 첨부</span></button><span data-i18n="att.drop">끌어다 놓기 또는 Ctrl+V 붙여넣기</span></div>
+              <input type="file" multiple style="display:none;">
+              <div class="att-list"></div>
+            </div>
+          </div>
+          <div class="f-field span-2">
+            <label data-i18n="col.action">대책 현황</label>
+            <textarea id="f-action"></textarea>
+            <div class="drop" data-kind="action">
+              <div class="drop-top"><button type="button" class="btn att-pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg><span data-i18n="att.add">그림/파일 첨부</span></button><span data-i18n="att.drop">끌어다 놓기 또는 Ctrl+V 붙여넣기</span></div>
+              <input type="file" multiple style="display:none;">
+              <div class="att-list"></div>
+            </div>
+          </div>
+          <div class="f-field span-2"><label><span data-i18n="col.result">결과</span><span class="req">*</span></label><div class="pill-group" id="f-result"></div></div>
+          <div class="f-field span-2"><label data-i18n="col.owner">담당 (대책)</label><input type="text" id="f-owner" list="dl-owner" autocomplete="off"></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="fs-title" data-i18n="fs.time">LOSS 시간</div>
+        <div class="form-grid">
+          <div class="f-field"><label>Start</label><input type="datetime-local" id="f-start"></div>
+          <div class="f-field"><label>End</label><input type="datetime-local" id="f-end"></div>
+          <div class="f-field"><label data-i18n="col.loss">Loss시간(분)</label><div class="calc-readout" id="f-loss-view">—</div><div class="f-hint" data-i18n="hint.loss">End − Start 자동 계산</div></div>
+          <div class="f-field"></div>
+          <div class="f-field span-2"><label data-i18n="col.owner2">담당 (LOSS)</label><input type="text" id="f-owner2" list="dl-owner" autocomplete="off"></div>
+          <div class="f-field span-2"><label data-i18n="col.confirm">확인</label><input type="text" id="f-confirm" autocomplete="off"></div>
+        </div>
+      </div>
+    </div>
+    <div class="m-foot">
+      <button class="btn" data-close="formOverlay" data-i18n="btn.cancel">취소</button>
+      <button class="btn btn-primary" id="btnSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="btn.save">저장</span></button>
+    </div>
+  </div>
+</div>
+<datalist id="dl-line"></datalist><datalist id="dl-process"></datalist><datalist id="dl-item"></datalist><datalist id="dl-owner"></datalist>
+
+<!-- 상세/첨부 보기 -->
+<div class="modal-overlay" id="viewerOverlay">
+  <div class="modal wide" style="max-width:760px;">
+    <div class="m-head"><h3 id="viewerTitle"></h3><button class="m-close" data-close="viewerOverlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="m-body" id="viewerBody"></div>
+  </div>
+</div>
+
+<!-- 카카오톡 공유 모달 -->
+<div class="modal-overlay" id="kshareOverlay">
+  <div class="modal wide" style="max-width:620px;">
+    <div class="m-head">
+      <h3 style="display:flex;align-items:center;gap:8px;"><span class="ks-logo">TALK</span><span data-i18n="ks.title">카카오톡으로 문제 알리기</span></h3>
+      <button class="m-close" data-close="kshareOverlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="m-body">
+      <div class="f-field" style="margin-bottom:14px;">
+        <label data-i18n="ks.who">확인 요청할 직원 (메시지에 이름이 들어갑니다)</label>
+        <div class="kk-chips" id="ks-staff"></div>
+        <div class="f-hint" id="ks-staff-hint"></div>
+      </div>
+      <div class="f-field">
+        <label><span data-i18n="ks.msg">보낼 메시지</span> <span class="f-hint" id="ks-count" style="margin-left:auto;"></span></label>
+        <textarea id="ks-text" style="min-height:150px;font-size:13.5px;line-height:1.6;"></textarea>
+      </div>
+      <div class="ks-how" id="ks-how"></div>
+    </div>
+    <div class="m-foot" style="flex-wrap:wrap;">
+      <button class="btn" id="ks-native" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg><span data-i18n="ks.native">다른 앱으로 공유</span></button>
+      <button class="btn" id="ks-copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span data-i18n="ks.copy">메시지 복사</span></button>
+      <button class="btn ks-btn" id="ks-send"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.8 5.3 4.6 6.7L5.5 21l4-2.6c.8.1 1.6.2 2.5.2 5.5 0 10-3.6 10-8S17.5 3 12 3Z"/></svg><span data-i18n="ks.send">카카오톡으로 보내기</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- 확인 모달 -->
+<div class="modal-overlay" id="confirmOverlay">
+  <div class="modal">
+    <h3 id="cfTitle"></h3>
+    <p id="cfMsg"></p>
+    <div class="modal-actions" id="cfActions"></div>
+  </div>
+</div>
+
+<input type="file" id="fileRestore" accept=".json,application/json" style="display:none;">
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* =====================================================================
+   LINE LOSS 문제·대책 관리 — 등록/현황조회
+   저장소: 브라우저 IndexedDB (이 PC/브라우저에 저장, 첨부파일 포함)
+   ===================================================================== */
+var FACTORIES=['1','2','3'];
+var CATEGORIES=['설비','치공구','JIG','PACK','검사기','기타'];
+var RESULTS=['완료','진행중','개선필요'];
+var MODEL_KEY='lli_models'; // 기본정보 화면에서 관리할 모델 목록 (추후)
+
+/* ---------- i18n ---------- */
+var I18N={
+ ko:{'brand.sub':'문제·대책 관리 시스템','nav.register':'등록 / 현황조회','nav.analysis':'분석현황','nav.master':'기본정보','footer.saved':'이 PC에 자동저장됨',
+  'register.subtitle':'LINE LOSS 문제 항목과 대책 현황을 등록하고 누적 현황을 조회합니다','register.cardTitle':'현황 조회',
+  'btn.import':'엑셀 업로드','btn.export':'엑셀로 내보내기','btn.new':'새 LOSS 등록','btn.cancel':'취소','btn.save':'저장','btn.delete':'삭제','btn.close':'닫기',
+  'flt.from':'시작일시','flt.to':'종료일시','flt.keyword':'검색 (공정명·품명·문제항목·대책·담당)','flt.keywordPh':'검색어 입력','flt.reset':'필터 초기화','flt.all':'전체',
+  'flt.hint':'시작일시·종료일시는 날짜만 입력해도 되고(시간 비워두면 0시 ~ 24시로 간주), 시각까지 지정하면 그 시간대에 걸쳐 있는 LOSS 건만 조회됩니다.',
+  'col.date':'일자','col.factory':'공장','col.line':'Line명','col.process':'공정명','col.model':'Model명','col.category':'구분','col.item':'품명','col.problem':'문제 항목','col.action':'대책 현황','col.result':'결과','col.owner':'담당 (대책)','col.owner2':'담당 (LOSS)','col.ownerShort':'담당','col.loss':'Loss시간(분)','col.confirm':'확인','col.manage':'관리',
+  'kpi.count':'조회된 등록건수','kpi.total':'총 Loss시간','kpi.avg':'건당 평균 Loss시간','kpi.open':'미완료 (진행중·개선필요)','kpi.lines':'발생 LINE 수','kpi.topCat':'최다 발생 구분','u.case':'건','u.min':'분','u.ea':'개',
+  'cat.설비':'설비','cat.치공구':'치공구','cat.JIG':'JIG','cat.PACK':'PACK','cat.검사기':'검사기','cat.기타':'기타','res.완료':'완료','res.진행중':'진행중','res.개선필요':'개선필요',
+  'fs.basic':'기본 정보','fs.issue':'문제 · 대책','fs.time':'LOSS 시간','hint.shift':'Start 시각 기준 08:00~20:00 → 1, 그 외 → 2 (자동)','hint.model':'기본정보에 등록된 모델','hint.loss':'End − Start 자동 계산',
+  'att.add':'그림/파일 첨부','att.drop':'끌어다 놓기 또는 Ctrl+V 붙여넣기','att.files':'첨부',
+  'form.new':'새 LOSS 등록','form.edit':'LOSS 수정','err.endBefore':'End가 Start보다 빠릅니다','err.required':'필수 항목을 입력해 주세요: ','err.time':'End 시간이 Start보다 빠릅니다.',
+  'msg.saved':'저장되었습니다','msg.updated':'수정되었습니다','msg.deleted':'삭제되었습니다','msg.noModel':'(모델 없음)','msg.exported':'엑셀 파일을 내보냈습니다','msg.noData':'내보낼 데이터가 없습니다',
+  'del.title':'삭제 확인','del.msg':'이 LOSS 내역을 삭제할까요?\n첨부된 그림/파일도 함께 삭제됩니다.',
+  'imp.title':'엑셀 업로드','imp.msg':'{n}건을 읽었습니다.\n기존 데이터({m}건)에 추가할까요, 아니면 모두 지우고 덮어쓸까요?','imp.append':'추가','imp.replace':'덮어쓰기','imp.done':'{n}건을 가져왔습니다','imp.none':'가져올 데이터가 없습니다. 헤더(일자·공장·SHIFT·Line명…) 행을 확인해 주세요.','imp.fail':'엑셀 파일을 읽지 못했습니다',
+  'empty.title':'등록된 데이터가 없습니다','empty.sub':'위 "새 LOSS 등록" 버튼을 눌러 내역을 입력해 주세요','empty.ftitle':'조건에 맞는 데이터가 없습니다','empty.fsub':'필터 조건을 변경해 보세요',
+  'count':'총 {n}건 조회 · Loss시간 합계 {m}분','view.title':'상세 보기','view.none':'(내용 없음)',
+  'ph.title':'준비 중인 화면입니다','ph.analysis':'분석현황 화면은 추가 지시에 따라 구성할 예정입니다.','ph.master':'기본정보 화면은 추가 지시에 따라 구성할 예정입니다.','saved.at':'마지막 저장 '},
+ en:{'brand.sub':'Issue & Action System','nav.register':'Register / Status','nav.analysis':'Analysis','nav.master':'Master Data','footer.saved':'Auto-saved on this PC',
+  'register.subtitle':'Register LINE LOSS issues and countermeasures, and review cumulative status','register.cardTitle':'Status',
+  'btn.import':'Upload Excel','btn.export':'Export to Excel','btn.new':'New LOSS','btn.cancel':'Cancel','btn.save':'Save','btn.delete':'Delete','btn.close':'Close',
+  'flt.from':'From','flt.to':'To','flt.keyword':'Search (process·item·issue·action·owner)','flt.keywordPh':'Enter keyword','flt.reset':'Reset filters','flt.all':'All',
+  'flt.hint':'Date only is fine (blank time = 00:00 ~ 24:00). With a time, only LOSS overlapping that period is shown.',
+  'col.date':'Date','col.factory':'Factory','col.line':'Line','col.process':'Process','col.model':'Model','col.category':'Category','col.item':'Item','col.problem':'Issue','col.action':'Countermeasure','col.result':'Result','col.owner':'Owner (action)','col.owner2':'Owner (LOSS)','col.ownerShort':'Owner','col.loss':'Loss (min)','col.confirm':'Confirm','col.manage':'Edit',
+  'kpi.count':'Records','kpi.total':'Total Loss','kpi.avg':'Avg Loss / case','kpi.open':'Open (in progress·needs fix)','kpi.lines':'Lines affected','kpi.topCat':'Top category','u.case':'','u.min':'min','u.ea':'',
+  'cat.설비':'Equipment','cat.치공구':'Tooling','cat.JIG':'JIG','cat.PACK':'PACK','cat.검사기':'Tester','cat.기타':'Other','res.완료':'Done','res.진행중':'In progress','res.개선필요':'Needs fix',
+  'fs.basic':'Basic','fs.issue':'Issue · Action','fs.time':'LOSS time','hint.shift':'By Start time: 08:00~20:00 → 1, else → 2 (auto)','hint.model':'Models from Master Data','hint.loss':'End − Start, auto',
+  'att.add':'Attach image/file','att.drop':'Drag & drop or Ctrl+V','att.files':'files',
+  'form.new':'New LOSS','form.edit':'Edit LOSS','err.endBefore':'End is earlier than Start','err.required':'Required: ','err.time':'End is earlier than Start.',
+  'msg.saved':'Saved','msg.updated':'Updated','msg.deleted':'Deleted','msg.noModel':'(no model)','msg.exported':'Excel exported','msg.noData':'No data to export',
+  'del.title':'Delete','del.msg':'Delete this LOSS record?\nAttached images/files will be deleted too.',
+  'imp.title':'Upload Excel','imp.msg':'{n} rows read.\nAppend to existing data ({m}) or replace all?','imp.append':'Append','imp.replace':'Replace','imp.done':'{n} rows imported','imp.none':'No data found. Check the header row (일자·공장·SHIFT·Line명…).','imp.fail':'Could not read the Excel file',
+  'empty.title':'No records yet','empty.sub':'Click "New LOSS" to add one','empty.ftitle':'No matching records','empty.fsub':'Try changing the filters',
+  'count':'{n} records · total Loss {m} min','view.title':'Details','view.none':'(empty)',
+  'ph.title':'Coming soon','ph.analysis':'The Analysis screen will be built in a later step.','ph.master':'The Master Data screen will be built in a later step.','saved.at':'Last saved '},
+ vi:{'brand.sub':'Quản lý vấn đề·biện pháp','nav.register':'Đăng ký / Tra cứu','nav.analysis':'Phân tích','nav.master':'Thông tin cơ bản','footer.saved':'Tự động lưu trên PC này',
+  'register.subtitle':'Đăng ký vấn đề LINE LOSS và biện pháp, tra cứu tình hình tích lũy','register.cardTitle':'Tra cứu',
+  'btn.import':'Tải lên Excel','btn.export':'Xuất Excel','btn.new':'Đăng ký LOSS mới','btn.cancel':'Hủy','btn.save':'Lưu','btn.delete':'Xóa','btn.close':'Đóng',
+  'flt.from':'Từ','flt.to':'Đến','flt.keyword':'Tìm (công đoạn·hạng mục·vấn đề·biện pháp·phụ trách)','flt.keywordPh':'Nhập từ khóa','flt.reset':'Xóa bộ lọc','flt.all':'Tất cả',
+  'flt.hint':'Chỉ nhập ngày cũng được (để trống giờ = 0h ~ 24h). Nếu nhập giờ, chỉ hiển thị LOSS trong khoảng thời gian đó.',
+  'col.date':'Ngày','col.factory':'Nhà máy','col.line':'Line','col.process':'Công đoạn','col.model':'Model','col.category':'Phân loại','col.item':'Hạng mục','col.problem':'Vấn đề','col.action':'Biện pháp','col.result':'Kết quả','col.owner':'Phụ trách (biện pháp)','col.owner2':'Phụ trách (LOSS)','col.ownerShort':'Phụ trách','col.loss':'Thời gian Loss (phút)','col.confirm':'Xác nhận','col.manage':'Quản lý',
+  'kpi.count':'Số bản ghi','kpi.total':'Tổng thời gian Loss','kpi.avg':'Loss TB / lần','kpi.open':'Chưa xong (đang xử lý·cần cải tiến)','kpi.lines':'Số LINE phát sinh','kpi.topCat':'Phân loại nhiều nhất','u.case':'','u.min':'phút','u.ea':'',
+  'cat.설비':'Thiết bị','cat.치공구':'Dụng cụ','cat.JIG':'JIG','cat.PACK':'PACK','cat.검사기':'Máy kiểm tra','cat.기타':'Khác','res.완료':'Hoàn thành','res.진행중':'Đang xử lý','res.개선필요':'Cần cải tiến',
+  'fs.basic':'Thông tin cơ bản','fs.issue':'Vấn đề · Biện pháp','fs.time':'Thời gian LOSS','hint.shift':'Theo giờ Start: 08:00~20:00 → 1, còn lại → 2 (tự động)','hint.model':'Model đăng ký ở Thông tin cơ bản','hint.loss':'End − Start, tự động',
+  'att.add':'Đính kèm ảnh/tệp','att.drop':'Kéo thả hoặc Ctrl+V','att.files':'tệp',
+  'form.new':'Đăng ký LOSS mới','form.edit':'Sửa LOSS','err.endBefore':'End sớm hơn Start','err.required':'Bắt buộc: ','err.time':'End sớm hơn Start.',
+  'msg.saved':'Đã lưu','msg.updated':'Đã sửa','msg.deleted':'Đã xóa','msg.noModel':'(chưa có model)','msg.exported':'Đã xuất Excel','msg.noData':'Không có dữ liệu',
+  'del.title':'Xác nhận xóa','del.msg':'Xóa bản ghi LOSS này?\nẢnh/tệp đính kèm cũng sẽ bị xóa.',
+  'imp.title':'Tải lên Excel','imp.msg':'Đã đọc {n} dòng.\nThêm vào dữ liệu hiện có ({m}) hay ghi đè tất cả?','imp.append':'Thêm','imp.replace':'Ghi đè','imp.done':'Đã nhập {n} dòng','imp.none':'Không có dữ liệu. Kiểm tra dòng tiêu đề (일자·공장·SHIFT·Line명…).','imp.fail':'Không đọc được tệp Excel',
+  'empty.title':'Chưa có dữ liệu','empty.sub':'Nhấn "Đăng ký LOSS mới" để nhập','empty.ftitle':'Không có dữ liệu phù hợp','empty.fsub':'Hãy thay đổi bộ lọc',
+  'count':'{n} bản ghi · tổng Loss {m} phút','view.title':'Chi tiết','view.none':'(trống)',
+  'ph.title':'Đang chuẩn bị','ph.analysis':'Màn hình Phân tích sẽ được xây dựng sau.','ph.master':'Màn hình Thông tin cơ bản sẽ được xây dựng sau.','saved.at':'Lưu lần cuối '}
+};
+var lang='ko';
+try{lang=localStorage.getItem('lli_lang')||'ko';}catch(e){}
+function t(k,vars){var L=I18N[lang]||{};var s=Object.prototype.hasOwnProperty.call(L,k)?L[k]:(I18N.ko[k]!=null?I18N.ko[k]:k);if(vars)for(var v in vars)s=s.split('{'+v+'}').join(vars[v]);return s;}
+function applyI18n(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var k=el.getAttribute('data-i18n');
+    el.textContent=t(k);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(function(el){el.placeholder=t(el.getAttribute('data-i18n-ph'));});
+}
+
+/* ---------- utils ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function pad(n){return (n<10?'0':'')+n;}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function todayISO(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function fmtDate(iso){if(!iso)return '';var p=iso.split('-');return p.length===3?p[0].slice(2)+'.'+p[1]+'.'+p[2]:iso;}  // 26.11.07
+function fmtDT(v){if(!v)return '';var m=v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);return m?m[2]+'-'+m[3]+' '+m[4]+':'+m[5]:v;} // 월-일 시:분
+function parseDT(v){if(!v)return null;var d=new Date(v);return isNaN(d)?null:d;}
+function lossMin(s,e){var a=parseDT(s),b=parseDT(e);if(!a||!b)return null;return Math.round((b-a)/60000);}
+function shiftOf(dtStr){var d=parseDT(dtStr);if(!d)d=new Date();var m=d.getHours()*60+d.getMinutes();return (m>=480&&m<1200)?'1':'2';}
+function toast(msg,type){var el=document.createElement('div');el.className='toast '+(type||'');el.textContent=msg;document.getElementById('toastWrap').appendChild(el);setTimeout(function(){el.remove();},2800);}
+function fmtNum(n){return Number(n||0).toLocaleString('ko-KR');}
+
+/* ---------- models (기본정보 연동 준비) ---------- */
+var MASTER=[]; // {id,type:'model'|'line'|'staff',name,...,active}
+function mList(type,activeOnly){
+  return MASTER.filter(function(m){return m.type===type&&(!activeOnly||m.active!==false);}).sort(function(a,b){
+    if(type==='line'&&String(a.factory||'')!==String(b.factory||''))return String(a.factory||'9')<String(b.factory||'9')?-1:1;
+    return String(a.name).localeCompare(String(b.name),'ko',{numeric:true});});
+}
+function getModels(){return mList('model',true).map(function(m){return m.name;});}
+
+/* ---------- IndexedDB ---------- */
+/* ★ 데이터 유지 규칙 (프로그램을 수정해도 데이터가 남도록)
+   - DB_NAME 은 절대 바꾸지 않습니다. 바꾸면 새 빈 저장소가 생깁니다.
+   - 구조를 바꿀 때는 DB_VERSION 을 1 올리고, onupgradeneeded 에서 '추가'만 합니다 (기존 저장소 삭제 금지).
+   - 이와 별도로 PC 폴더 자동 백업 + 백업 파일 복원으로 브라우저 데이터가 지워져도 되살릴 수 있습니다. */
+var DB_NAME='LineLossIssueDB',DB_VERSION=3;
+var db,RECORDS=[];
+function openDB(){return new Promise(function(res,rej){
+  var r=indexedDB.open(DB_NAME,DB_VERSION);
+  r.onupgradeneeded=function(){var d=r.result;if(!d.objectStoreNames.contains('records'))d.createObjectStore('records',{keyPath:'id'});if(!d.objectStoreNames.contains('files'))d.createObjectStore('files',{keyPath:'id'});if(!d.objectStoreNames.contains('master'))d.createObjectStore('master',{keyPath:'id'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'key'});};
+  r.onblocked=function(){showDbBanner(t('db.blocked'));};
+  r.onsuccess=function(){db=r.result;hideDbBanner();
+    // 더 새로운 버전이 열리면 이 탭은 연결을 양보 (업그레이드가 막히지 않도록)
+    db.onversionchange=function(){db.close();db=null;showDbBanner(t('db.newer'));};
+    res();};
+  r.onerror=function(){rej(r.error);};
+});}
+function showDbBanner(msg){var b=$('dbBanner');if(!b){b=document.createElement('div');b.id='dbBanner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:4000;background:#c5402e;color:#fff;padding:12px 20px;font-size:13.5px;font-weight:700;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.2);white-space:pre-line;';document.body.appendChild(b);}b.textContent=msg;b.style.display='block';}
+function hideDbBanner(){var b=$('dbBanner');if(b)b.style.display='none';}
+function dbReady(){if(db)return true;toast(t('db.notReady'),'error');return false;}
+function tx(store,mode,fn){if(!db)return Promise.reject(new Error(t('db.notReady')));return new Promise(function(res,rej){var x=db.transaction(store,mode);var out=fn(x.objectStore(store));x.oncomplete=function(){res(out&&out.result!==undefined?out.result:undefined);};x.onerror=function(){rej(x.error);};});}
+function getAll(store){if(!db)return Promise.reject(new Error(t('db.notReady')));return new Promise(function(res,rej){var q=db.transaction(store).objectStore(store).getAll();q.onsuccess=function(){res(q.result);};q.onerror=function(){rej(q.error);};});}
+function getOne(store,id){if(!db)return Promise.reject(new Error(t('db.notReady')));return new Promise(function(res,rej){var q=db.transaction(store).objectStore(store).get(id);q.onsuccess=function(){res(q.result);};q.onerror=function(){rej(q.error);};});}
+function putRec(r){return tx('records','readwrite',function(s){s.put(r);});}
+function delRec(id){return tx('records','readwrite',function(s){s.delete(id);});}
+function putFile(f){return tx('files','readwrite',function(s){s.put(f);});}
+function delFiles(ids){if(!ids||!ids.length)return Promise.resolve();return tx('files','readwrite',function(s){ids.forEach(function(i){s.delete(i);});});}
+function markSaved(){scheduleAutoBackup();var d=new Date();document.getElementById('lastSavedTime').textContent=t('saved.at')+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+
+/* ---------- filters ---------- */
+var F={from:'ft-from',to:'ft-to',factory:'ft-factory',model:'ft-model',line:'ft-line',shift:'ft-shift',category:'ft-category',result:'ft-result',keyword:'ft-keyword'};
+function $(id){return document.getElementById(id);}
+function fillSelect(el,vals,labelFn){var cur=el.value;el.innerHTML='<option value="">'+esc(t('flt.all'))+'</option>'+vals.map(function(v){return '<option value="'+esc(v)+'">'+esc(labelFn?labelFn(v):v)+'</option>';}).join('');if(vals.indexOf(cur)>=0)el.value=cur;}
+function uniq(key){var s={};RECORDS.forEach(function(r){if(r[key])s[r[key]]=1;});return Object.keys(s).sort();}
+function refreshFilterOptions(){
+  fillSelect($(F.factory),FACTORIES,function(v){return v+(lang==='ko'?' 공장':'');});
+  var models=getModels().slice();uniq('model').forEach(function(m){if(models.indexOf(m)<0)models.push(m);});
+  fillSelect($(F.model),models);
+  var lines=mList('line',false).map(function(m){return m.name;});uniq('line').forEach(function(l){if(lines.indexOf(l)<0)lines.push(l);});
+  fillSelect($(F.line),lines);
+  fillSelect($(F.shift),['1','2']);
+  fillSelect($(F.category),CATEGORIES,function(v){return t('cat.'+v);});
+  fillSelect($(F.result),RESULTS,function(v){return t('res.'+v);});
+  [['dl-process','process'],['dl-item','item']].forEach(function(p){$(p[0]).innerHTML=uniq(p[1]).map(function(v){return '<option value="'+esc(v)+'">';}).join('');});
+  refreshLineDL();
+  // 담당: 기본정보 직원(사용) 우선 + 과거 입력값
+  var staff=mList('staff',true),seen={},html='';
+  staff.forEach(function(m){seen[m.name]=1;html+='<option value="'+esc(m.name)+'">'+esc([m.dept,m.position].filter(Boolean).join(' · '))+'</option>';});
+  var ow={};RECORDS.forEach(function(r){[r.owner,r.owner2].forEach(function(v){if(v&&!seen[v])ow[v]=1;});});
+  Object.keys(ow).sort().forEach(function(v){html+='<option value="'+esc(v)+'">';});
+  $('dl-owner').innerHTML=html;
+}
+function refreshLineDL(){ // Line명 자동완성: 기본정보 라인(선택한 공장 기준) + 과거 입력값
+  var fac=formState&&formState.factory,seen={},html='';
+  mList('line',true).forEach(function(m){if(fac&&m.factory&&String(m.factory)!==fac)return;seen[m.name]=1;html+='<option value="'+esc(m.name)+'">'+esc((m.factory?m.factory+(lang==='ko'?'공장':'F'):'')+(m.note?' · '+m.note:''))+'</option>';});
+  uniq('line').forEach(function(v){if(!seen[v])html+='<option value="'+esc(v)+'">';});
+  $('dl-line').innerHTML=html;
+}
+function rangeOf(r){ // LOSS 구간 (Start~End), 없으면 일자 하루
+  var s=parseDT(r.start),e=parseDT(r.end);
+  if(s&&e)return [s,e];if(s)return [s,s];
+  if(r.date){var d=new Date(r.date+'T00:00');return [d,new Date(d.getTime()+86400000-1)];}
+  return null;
+}
+function filterBound(v,isEnd){if(!v)return null;var d=parseDT(v);if(!d)return null;
+  if(/T00:00$/.test(v)&&isEnd)return new Date(d.getTime()+86400000-1);return d;}
+function filtered(){
+  var fv={};for(var k in F)fv[k]=$(F[k]).value.trim();
+  var a=filterBound(fv.from,false),b=filterBound(fv.to,true),kw=fv.keyword.toLowerCase();
+  return RECORDS.filter(function(r){
+    if(fv.factory&&String(r.factory)!==fv.factory)return false;
+    if(fv.model&&r.model!==fv.model)return false;
+    if(fv.line&&r.line!==fv.line)return false;
+    if(fv.shift&&String(r.shift)!==fv.shift)return false;
+    if(fv.category&&r.category!==fv.category)return false;
+    if(fv.result&&r.result!==fv.result)return false;
+    if(a||b){var rg=rangeOf(r);if(!rg)return false;if(a&&rg[1]<a)return false;if(b&&rg[0]>b)return false;}
+    if(kw){var hay=[r.line,r.process,r.model,r.item,r.problem,r.action,r.owner,r.owner2,r.confirm].join(' ').toLowerCase();if(hay.indexOf(kw)<0)return false;}
+    return true;
+  }).sort(function(x,y){var dx=(x.date||'')+(x.start||''),dy=(y.date||'')+(y.start||'');return dx<dy?1:dx>dy?-1:(y.createdAt||0)-(x.createdAt||0);});
+}
+
+/* ---------- render ---------- */
+var ICON_TALK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.8 5.3 4.6 6.7L5.5 21l4-2.6c.8.1 1.6.2 2.5.2 5.5 0 10-3.6 10-8S17.5 3 12 3Z"/></svg>';
+var ICON_EDIT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+var ICON_DEL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>';
+var ICON_CLIP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>';
+function renderHead(){
+  var cols=[t('col.date'),t('col.factory'),'SHIFT',t('col.line'),t('col.process'),t('col.model'),t('col.category'),t('col.item'),t('col.problem'),t('col.action'),t('col.result'),t('col.ownerShort'),'Start','End',t('col.loss'),t('col.ownerShort'),t('col.confirm'),t('col.manage')];
+  $('theadRow').innerHTML=cols.map(function(c,i){var st=i===14?' style="text-align:right"':(i===17||i===1||i===2?' style="text-align:center"':'');return '<th'+st+'>'+esc(c)+'</th>';}).join('');
+}
+function attBtn(r,kind){var n=(kind==='problem'?r.problemFiles:r.actionFiles)||[];if(!n.length)return '';
+  return '<br><button class="att-link" data-view="'+r.id+'">'+ICON_CLIP+n.length+' '+esc(t('att.files'))+'</button>';}
+function renderTable(){
+  var rows=filtered(),tb=$('tbody');
+  tb.innerHTML=rows.map(function(r){
+    return '<tr>'+
+      '<td class="nw mono">'+esc(fmtDate(r.date))+'</td>'+
+      '<td class="nw" style="text-align:center">'+esc(r.factory)+'</td>'+
+      '<td style="text-align:center">'+(r.shift?'<span class="shift-pill shift-'+esc(r.shift)+'">'+esc(r.shift)+'</span>':'')+'</td>'+
+      '<td class="nw"><b>'+esc(r.line)+'</b></td>'+
+      '<td>'+esc(r.process)+'</td>'+
+      '<td class="nw">'+esc(r.model)+'</td>'+
+      '<td>'+(r.category?'<span class="badge b-cat-'+esc(r.category)+'">'+esc(t('cat.'+r.category))+'</span>':'')+'</td>'+
+      '<td>'+esc(r.item)+'</td>'+
+      '<td class="txt">'+esc(r.problem)+attBtn(r,'problem')+'</td>'+
+      '<td class="txt">'+esc(r.action)+attBtn(r,'action')+'</td>'+
+      '<td>'+(r.result?'<span class="badge b-res-'+esc(r.result)+'">'+esc(t('res.'+r.result))+'</span>':'')+'</td>'+
+      '<td class="nw">'+esc(r.owner)+'</td>'+
+      '<td class="nw mono">'+esc(fmtDT(r.start))+'</td>'+
+      '<td class="nw mono">'+esc(fmtDT(r.end))+'</td>'+
+      '<td class="cell-num">'+(r.lossMin!=null&&r.lossMin!==''?fmtNum(r.lossMin):'')+'</td>'+
+      '<td class="nw">'+esc(r.owner2)+'</td>'+
+      '<td class="nw">'+esc(r.confirm)+'</td>'+
+      '<td><div class="row-actions"><button class="icon-btn kshare" data-kshare="'+r.id+'" title="KakaoTalk">'+ICON_TALK+'</button><button class="icon-btn" data-edit="'+r.id+'" title="Edit">'+ICON_EDIT+'</button><button class="icon-btn del" data-del="'+r.id+'" title="Delete">'+ICON_DEL+'</button></div></td>'+
+    '</tr>';
+  }).join('');
+  var empty=$('emptyState');
+  if(!rows.length){empty.style.display='flex';var none=!RECORDS.length;$('emptyTitle').textContent=t(none?'empty.title':'empty.ftitle');$('emptySub').textContent=t(none?'empty.sub':'empty.fsub');}
+  else empty.style.display='none';
+  var sum=rows.reduce(function(a,r){return a+(Number(r.lossMin)||0);},0);
+  $('countText').textContent=t('count',{n:fmtNum(rows.length),m:fmtNum(sum)});
+  renderKPI(rows,sum);
+}
+function renderKPI(rows,sum){
+  var withLoss=rows.filter(function(r){return r.lossMin!=null&&r.lossMin!=='';});
+  var avg=withLoss.length?Math.round(sum/withLoss.length):0;
+  var open=rows.filter(function(r){return r.result==='진행중'||r.result==='개선필요';}).length;
+  var lines={};rows.forEach(function(r){if(r.line)lines[r.line]=1;});
+  var cc={};rows.forEach(function(r){if(r.category)cc[r.category]=(cc[r.category]||0)+1;});
+  var top='-',topN=0;for(var c in cc)if(cc[c]>topN){top=c;topN=cc[c];}
+  function k(cls,label,val,unit,isTxt){return '<div class="kpi '+cls+'"><div class="k-bar"></div><div class="k-label">'+esc(label)+'</div><div class="k-val'+(isTxt?' txt':'')+'">'+val+(unit?'<span class="k-unit">'+esc(unit)+'</span>':'')+'</div></div>';}
+  $('kpiRow').innerHTML=
+    k('c1',t('kpi.count'),fmtNum(rows.length),t('u.case'))+
+    k('c2',t('kpi.total'),fmtNum(sum),t('u.min'))+
+    k('c3',t('kpi.avg'),fmtNum(avg),t('u.min'))+
+    k('c4',t('kpi.open'),fmtNum(open),t('u.case'))+
+    k('c5',t('kpi.lines'),fmtNum(Object.keys(lines).length),t('u.ea'))+
+    k('c6',t('kpi.topCat'),esc(top==='-'?'-':t('cat.'+top)),topN?topN+t('u.case'):'',true);
+}
+function renderAll(){refreshFilterOptions();renderHead();renderTable();if(document.getElementById('emptyBanner'))updateEmptyBanner();}
+
+/* ---------- form ---------- */
+var editing=null;          // record id when editing
+var formFiles={problem:[],action:[]}; // [{id,name,type,blob,isNew}]
+var removedFileIds=[];
+var formState={factory:'',category:'',result:''};
+function pills(hostId,vals,key,labelFn,clsPrefix){
+  var h=$(hostId);h.innerHTML=vals.map(function(v){return '<button type="button" class="pill'+(clsPrefix?' '+clsPrefix+v:'')+(formState[key]===v?' active':'')+'" data-v="'+esc(v)+'">'+esc(labelFn(v))+'</button>';}).join('');
+  h.querySelectorAll('.pill').forEach(function(b){b.onclick=function(){formState[key]=b.getAttribute('data-v');pills(hostId,vals,key,labelFn,clsPrefix);if(key==='factory')refreshLineDL();};});
+}
+function renderPills(){
+  pills('f-factory',FACTORIES,'factory',function(v){return v+(lang==='ko'?' 공장':'');});
+  pills('f-category',CATEGORIES,'category',function(v){return t('cat.'+v);});
+  pills('f-result',RESULTS,'result',function(v){return t('res.'+v);},'r-');
+}
+function updateCalc(){
+  var s=$('f-start').value,e=$('f-end').value;
+  $('f-shift-view').innerHTML='<span class="shift-pill shift-'+shiftOf(s)+'">'+shiftOf(s)+'</span>';
+  var lv=$('f-loss-view'),m=lossMin(s,e);
+  lv.classList.remove('err');
+  if(m==null)lv.textContent='—';
+  else if(m<0){lv.classList.add('err');lv.textContent=t('err.endBefore');}
+  else lv.textContent=fmtNum(m)+' '+t('u.min');
+}
+function fillModelSelect(cur){
+  var ms=getModels().slice();if(cur&&ms.indexOf(cur)<0)ms.push(cur);
+  $('f-model').innerHTML=ms.length?ms.map(function(m){return '<option value="'+esc(m)+'">'+esc(m)+'</option>';}).join(''):'<option value="">'+esc(t('msg.noModel'))+'</option>';
+  if(cur)$('f-model').value=cur;
+}
+function renderAtt(kind){
+  var host=document.querySelector('.drop[data-kind="'+kind+'"] .att-list');
+  host.innerHTML='';
+  formFiles[kind].forEach(function(f,i){
+    var d=document.createElement('div');d.className='att-item';d.title=f.name;
+    var isImg=/^image\//.test(f.type);
+    if(isImg){var url=URL.createObjectURL(f.blob);d.innerHTML='<img class="thumb" src="'+url+'">';}
+    else d.innerHTML='<div class="fileicon">'+esc((f.name.split('.').pop()||'FILE').toUpperCase().slice(0,5))+'</div>';
+    d.innerHTML+='<div class="nm">'+esc(f.name)+'</div><button type="button" class="x" title="remove">×</button>';
+    d.querySelector('.x').onclick=function(ev){ev.stopPropagation();if(!f.isNew)removedFileIds.push(f.id);formFiles[kind].splice(i,1);renderAtt(kind);};
+    d.onclick=function(){openFileBlob(f);};
+    host.appendChild(d);
+  });
+}
+function addFiles(kind,list){
+  Array.prototype.forEach.call(list,function(file){
+    var name=file.name||('image_'+Date.now()+'.png');
+    formFiles[kind].push({id:uid(),name:name,type:file.type||'application/octet-stream',blob:file,isNew:true});
+  });
+  renderAtt(kind);
+}
+function openFileBlob(f){
+  var url=URL.createObjectURL(f.blob);
+  if(/^image\//.test(f.type)){
+    $('viewerTitle').textContent=f.name;
+    $('viewerBody').innerHTML='<img class="big-img" src="'+url+'">';
+    $('viewerOverlay').classList.add('open');
+  }else{var a=document.createElement('a');a.href=url;a.download=f.name;document.body.appendChild(a);a.click();a.remove();}
+}
+async function loadFiles(ids){var out=[];for(var i=0;i<(ids||[]).length;i++){var f=await getOne('files',ids[i]);if(f)out.push({id:f.id,name:f.name,type:f.type,blob:f.blob,isNew:false});}return out;}
+
+async function openForm(id){
+  editing=id||null;removedFileIds=[];
+  var r=id?RECORDS.find(function(x){return x.id===id;}):null;
+  $('formTitle').textContent=t(r?'form.edit':'form.new');
+  $('f-date').value=r?r.date||'':todayISO();
+  formState.factory=r?String(r.factory||''):'';
+  formState.category=r?r.category||'':'';
+  formState.result=r?r.result||'':'';
+  fillModelSelect(r?r.model:'');
+  ['line','process','item','problem','action','owner','owner2','confirm'].forEach(function(k){$('f-'+k).value=r?(r[k]||''):'';});
+  $('f-start').value=r?r.start||'':'';
+  $('f-end').value=r?r.end||'':'';
+  formFiles.problem=r?await loadFiles(r.problemFiles):[];
+  formFiles.action=r?await loadFiles(r.actionFiles):[];
+  renderPills();renderAtt('problem');renderAtt('action');updateCalc();
+  $('formOverlay').classList.add('open');
+  setTimeout(function(){$('f-line').focus();},50);
+}
+async function saveForm(){
+  if(!dbReady())return;
+  var v={date:$('f-date').value,factory:formState.factory,model:$('f-model').value,line:$('f-line').value.trim(),process:$('f-process').value.trim(),
+    category:formState.category,item:$('f-item').value.trim(),problem:$('f-problem').value.trim(),action:$('f-action').value.trim(),
+    result:formState.result,owner:$('f-owner').value.trim(),start:$('f-start').value,end:$('f-end').value,owner2:$('f-owner2').value.trim(),confirm:$('f-confirm').value.trim()};
+  var miss=[];
+  if(!v.date)miss.push(t('col.date'));if(!v.factory)miss.push(t('col.factory'));if(!v.model)miss.push(t('col.model'));
+  if(!v.line)miss.push(t('col.line'));if(!v.category)miss.push(t('col.category'));if(!v.problem)miss.push(t('col.problem'));if(!v.result)miss.push(t('col.result'));
+  if(miss.length){toast(t('err.required')+miss.join(', '),'error');return;}
+  var m=lossMin(v.start,v.end);
+  if(m!=null&&m<0){toast(t('err.time'),'error');return;}
+  v.lossMin=m;
+  v.shift=v.start?shiftOf(v.start):(editing?(RECORDS.find(function(x){return x.id===editing;})||{}).shift||shiftOf(''):shiftOf(''));
+  // files
+  for(var kind in formFiles){for(var i=0;i<formFiles[kind].length;i++){var f=formFiles[kind][i];if(f.isNew){await putFile({id:f.id,name:f.name,type:f.type,blob:f.blob});f.isNew=false;}}}
+  v.problemFiles=formFiles.problem.map(function(f){return f.id;});
+  v.actionFiles=formFiles.action.map(function(f){return f.id;});
+  await delFiles(removedFileIds);
+  var now=Date.now();
+  if(editing){var old=RECORDS.find(function(x){return x.id===editing;});v.id=editing;v.createdAt=old.createdAt;v.updatedAt=now;}
+  else{v.id=uid();v.createdAt=now;v.updatedAt=now;}
+  await putRec(v);
+  var idx=RECORDS.findIndex(function(x){return x.id===v.id;});if(idx>=0)RECORDS[idx]=v;else RECORDS.push(v);
+  $('formOverlay').classList.remove('open');
+  toast(t(editing?'msg.updated':'msg.saved'),'success');markSaved();renderAll();
+  kakaoOnSave(v,editing?old:null);
+  if(!editing&&KAKAO.shareAuto)setTimeout(function(){openKShare(v);},250);
+}
+
+/* ---------- confirm ---------- */
+function ask(title,msg,buttons){ // buttons: [{label,cls,value}]
+  return new Promise(function(res){
+    $('cfTitle').textContent=title;$('cfMsg').textContent=msg;
+    var h=$('cfActions');h.innerHTML='';
+    buttons.forEach(function(b){var el=document.createElement('button');el.className='btn '+(b.cls||'');el.textContent=b.label;el.onclick=function(){$('confirmOverlay').classList.remove('open');res(b.value);};h.appendChild(el);});
+    $('confirmOverlay').classList.add('open');
+  });
+}
+async function deleteRecord(id){
+  var ok=await ask(t('del.title'),t('del.msg'),[{label:t('btn.cancel'),value:false},{label:t('btn.delete'),cls:'btn-danger',value:true}]);
+  if(!ok)return;
+  var r=RECORDS.find(function(x){return x.id===id;});
+  await delFiles([].concat(r.problemFiles||[],r.actionFiles||[]));
+  await delRec(id);RECORDS=RECORDS.filter(function(x){return x.id!==id;});
+  toast(t('msg.deleted'));markSaved();renderAll();
+}
+
+/* ---------- viewer (문제/대책 + 첨부) ---------- */
+async function openViewer(id){
+  var r=RECORDS.find(function(x){return x.id===id;});if(!r)return;
+  $('viewerTitle').textContent=t('view.title')+' · '+[fmtDate(r.date),r.line,r.process].filter(Boolean).join(' / ');
+  var html='<div class="viewer-grid">';
+  for(var kind of ['problem','action']){
+    var files=await loadFiles(kind==='problem'?r.problemFiles:r.actionFiles);
+    html+='<div><h4>'+esc(t('col.'+kind))+'</h4><div class="vtext">'+esc(r[kind]||t('view.none'))+'</div><div class="viewer-imgs">';
+    files.forEach(function(f){var u=URL.createObjectURL(f.blob);
+      html+=/^image\//.test(f.type)?'<a class="img" href="'+u+'" target="_blank" title="'+esc(f.name)+'"><img src="'+u+'"></a>':'<a class="file" href="'+u+'" download="'+esc(f.name)+'">'+ICON_CLIP.replace('<svg','<svg width="13" height="13"')+esc(f.name)+'</a>';});
+    html+='</div></div>';
+  }
+  $('viewerBody').innerHTML=html+'</div>';
+  $('viewerOverlay').classList.add('open');
+}
+
+/* ---------- Excel ---------- */
+var XL_HEAD=['일자','공장','SHIFT','Line명','공정명','Model명','구분','품명','문제 항목','대책 현황','결과','담당','Start','End','Loss시간','담당','확인'];
+/* ===== 엑셀 내보내기: 첨부 그림은 셀에 이미지로 삽입, 파일은 아이콘(클릭 시 열림) =====
+   첨부가 있으면  [엑셀 + 첨부파일 폴더]를 ZIP 하나로 저장합니다.
+   (압축을 푼 뒤 엑셀을 열면 그림/파일 아이콘 클릭으로 원본이 열립니다) */
+var XL_HEAD2=['일자','공장','SHIFT','Line명','공정명','Model명','구분','품명','문제 항목','문제 첨부','대책 현황','대책 첨부','결과','담당','Start','End','Loss시간','담당','확인'];
+var XL_W2=[10,6,7,10,16,12,9,14,30,27,30,27,10,10,12,12,10,10,10];
+var ATT_FOLDER='첨부파일';
+function blobToDataURL(b){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(b);});}
+function loadImg(blob){return new Promise(function(res,rej){var u=URL.createObjectURL(blob),im=new Image();im.onload=function(){res(im);};im.onerror=function(){URL.revokeObjectURL(u);rej(new Error('img'));};im.src=u;});}
+async function makeThumb(f){ // 표시 최대 180x130px, 선명도를 위해 2배 해상도로 저장
+  var im=await loadImg(f.blob),W=180,H=130,sc=Math.min(W/im.naturalWidth,H/im.naturalHeight,1);
+  var w=Math.max(20,Math.round(im.naturalWidth*sc)),h=Math.max(20,Math.round(im.naturalHeight*sc));
+  var c=document.createElement('canvas');c.width=w*2;c.height=h*2;var g=c.getContext('2d');
+  var png=/png|gif/.test(f.type);if(!png){g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);}
+  g.drawImage(im,0,0,c.width,c.height);
+  return {base64:c.toDataURL(png?'image/png':'image/jpeg',0.88),ext:png?'png':'jpeg',w:w,h:h};
+}
+function makeFileIcon(name){ // 파일 카드 이미지 (클릭하면 파일이 열리도록 링크를 겁니다)
+  var w=180,h=30,S=2,c=document.createElement('canvas');c.width=w*S;c.height=h*S;var g=c.getContext('2d');g.scale(S,S);
+  function rr(x,y,ww,hh,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+ww,y,x+ww,y+hh,r);g.arcTo(x+ww,y+hh,x,y+hh,r);g.arcTo(x,y+hh,x,y,r);g.arcTo(x,y,x+ww,y,r);g.closePath();}
+  rr(0.5,0.5,w-1,h-1,5);g.fillStyle='#f5f7fc';g.fill();g.strokeStyle='#b9c3da';g.lineWidth=1;g.stroke();
+  var ext=(name.split('.').length>1?name.split('.').pop():'FILE').toUpperCase().slice(0,4);
+  rr(4,4,38,h-8,4);g.fillStyle='#1c2a4a';g.fill();
+  g.fillStyle='#fff';g.font='bold 10px Segoe UI, Malgun Gothic, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(ext,23,h/2+0.5);
+  g.textAlign='left';g.fillStyle='#2d62a8';g.font='600 11px Segoe UI, Malgun Gothic, sans-serif';
+  var max=w-58,nm=name;if(g.measureText(nm).width>max){while(nm.length>1&&g.measureText(nm+'…').width>max)nm=nm.slice(0,-1);nm+='…';}
+  g.fillText(nm,48,h/2+0.5);
+  g.strokeStyle='#2d62a8';g.lineWidth=1.4;g.beginPath();g.moveTo(w-12,9);g.lineTo(w-7,9);g.lineTo(w-7,14);g.moveTo(w-7,9);g.lineTo(w-14,16);g.stroke();
+  return {base64:c.toDataURL('image/png'),ext:'png',w:w,h:h};
+}
+function safeName(n){return String(n||'file').replace(/[\\\/:*?"<>|#%&{}~\[\]]/g,'_').replace(/\s+/g,'_');}
+function textLines(str,colW){ // 셀 줄바꿈 줄 수 추정 (한글은 2칸)
+  if(!str)return 1;var cap=Math.max(4,colW-2),n=0;
+  String(str).split('\n').forEach(function(line){var v=0;for(var i=0;i<line.length;i++)v+=line.charCodeAt(i)>255?1.9:1;n+=Math.max(1,Math.ceil(v/cap));});
+  return n;
+}
+function saveBlob(blob,name){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},4000);}
+var exporting=false;
+async function exportExcel(){
+  var rows=filtered();if(!rows.length){toast(t('msg.noData'),'error');return;}
+  if(typeof ExcelJS==='undefined'){toast(t('xl.libFail'),'error');return;}
+  if(exporting)return;exporting=true;
+  var btn=$('btnExport');btn.disabled=true;var oldHtml=btn.innerHTML;btn.querySelector('span').textContent=t('xl.making');
+  try{
+    var wb=new ExcelJS.Workbook();wb.creator='LINE LOSS';
+    var ws=wb.addWorksheet('등록_조회',{views:[{state:'frozen',ySplit:1}]});
+    ws.columns=XL_W2.map(function(w){return {width:w};});
+    var thin={style:'thin',color:{argb:'FFC8CEDC'}},border={top:thin,left:thin,bottom:thin,right:thin};
+    var hr=ws.getRow(1);hr.values=XL_HEAD2;hr.height=24;
+    hr.eachCell(function(c){c.font={bold:true,color:{argb:'FFFFFFFF'},size:10};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF16213D'}};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border=border;});
+    var resColor={'완료':'FF1F8A5C','진행중':'FF2D62A8','개선필요':'FFC5402E'};
+    var zipFiles=[],used={},PAD=4,GAP=4,EMU=9525;
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i],R=i+2,no=('00'+(i+1)).slice(-3);
+      var vals=[fmtDate(r.date),r.factory?Number(r.factory):'',r.shift?Number(r.shift):'',r.line||'',r.process||'',r.model||'',r.category||'',r.item||'',r.problem||'','',r.action||'','',r.result||'',r.owner||'',fmtDT(r.start),fmtDT(r.end),(r.lossMin!=null&&r.lossMin!=='')?Number(r.lossMin):'',r.owner2||'',r.confirm||''];
+      var row=ws.getRow(R);row.values=vals;
+      // 첨부 준비
+      var place={},maxH=0;
+      for(var kind of ['problem','action']){
+        var files=await loadFiles(kind==='problem'?r.problemFiles:r.actionFiles),items=[],tot=0;
+        for(var j=0;j<files.length;j++){
+          var f=files[j],base=no+'_'+(kind==='problem'?'문제':'대책')+'_'+safeName(f.name),nm=base,k2=2;
+          while(used[nm.toLowerCase()]){var dot=base.lastIndexOf('.');nm=dot>0?base.slice(0,dot)+'('+k2+')'+base.slice(dot):base+'('+k2+')';k2++;}
+          used[nm.toLowerCase()]=1;zipFiles.push({name:nm,blob:f.blob});
+          var pic=null;
+          if(/^image\//.test(f.type)){try{pic=await makeThumb(f);}catch(e){pic=null;}}
+          if(!pic)pic=makeFileIcon(f.name);
+          pic.path=ATT_FOLDER+'/'+nm;pic.tip=f.name;items.push(pic);tot+=pic.h+(items.length>1?GAP:0);
+        }
+        place[kind]=items;if(items.length)maxH=Math.max(maxH,tot+PAD*2);
+      }
+      var txtH=Math.max(textLines(r.problem,XL_W2[8]),textLines(r.action,XL_W2[10]))*15+8;
+      row.height=Math.max(22,maxH,txtH)*0.75;
+      row.eachCell({includeEmpty:true},function(c,col){
+        if(col>XL_HEAD2.length)return;
+        var C=col-1,wrap=(C===8||C===10);
+        c.border=border;
+        c.alignment={vertical:wrap?'top':'middle',horizontal:(C<=2||C===12)?'center':(C===16?'right':'left'),wrapText:wrap||C===4||C===7};
+        c.font={size:10,color:{argb:(C===12&&resColor[r.result])?resColor[r.result]:'FF3D4663'},bold:C===12||C===16||C===3};
+      });
+      [['problem',9],['action',11]].forEach(function(pc){
+        var y=PAD;place[pc[0]].forEach(function(pic){
+          var id=wb.addImage({base64:pic.base64,extension:pic.ext});
+          ws.addImage(id,{tl:{nativeCol:pc[1],nativeColOff:PAD*EMU,nativeRow:R-1,nativeRowOff:y*EMU},ext:{width:pic.w,height:pic.h},editAs:'oneCell',hyperlinks:{hyperlink:pic.path,tooltip:pic.tip+' ('+t('xl.clickOpen')+')'}});
+          y+=pic.h+GAP;});
+      });
+    }
+    ws.autoFilter={from:'A1',to:{row:1,column:XL_HEAD2.length}};
+    ws.pageSetup={orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.3,right:0.3,top:0.4,bottom:0.4,header:0.2,footer:0.2}};ws.pageSetup.printTitlesRow='1:1';
+    var buf=await wb.xlsx.writeBuffer();
+    var d=new Date(),stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes());
+    var xlName='LINE_LOSS_문제대책_'+stamp+'.xlsx';
+    if(zipFiles.length&&typeof JSZip!=='undefined'){
+      var zip=new JSZip();zip.file(xlName,buf);var fd=zip.folder(ATT_FOLDER);zipFiles.forEach(function(z){fd.file(z.name,z.blob);});
+      var zb=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+      saveBlob(zb,'LINE_LOSS_문제대책_'+stamp+'.zip');
+      ask(t('xl.zipTitle'),t('xl.zipMsg',{n:zipFiles.length}),[{label:t('btn.close'),cls:'btn-primary',value:true}]);
+    }else{
+      saveBlob(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),xlName);
+      toast(t('msg.exported'),'success');
+    }
+  }catch(err){console.error(err);toast(t('xl.fail')+' '+(err&&err.message||''),'error');}
+  finally{exporting=false;btn.disabled=false;btn.innerHTML=oldHtml;}
+}
+function xlDate(v){ // -> YYYY-MM-DD
+  if(v==null||v==='')return '';
+  if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+pad(v.getMonth()+1)+'-'+pad(v.getDate());
+  if(typeof v==='number'){var d=XLSX.SSF.parse_date_code(v);return d?d.y+'-'+pad(d.m)+'-'+pad(d.d):'';}
+  var s=String(v).trim(),m;
+  if(m=s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/))return m[1]+'-'+pad(+m[2])+'-'+pad(+m[3]);
+  if(m=s.match(/^(\d{2})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/))return '20'+m[1]+'-'+pad(+m[2])+'-'+pad(+m[3]);
+  return '';
+}
+function xlDT(v,baseDate){ // -> YYYY-MM-DDTHH:mm
+  if(v==null||v==='')return '';
+  if(v instanceof Date&&!isNaN(v)){
+    if(v.getFullYear()<1901&&baseDate)return baseDate+'T'+pad(v.getHours())+':'+pad(v.getMinutes()); // 시간만 입력된 셀
+    return v.getFullYear()+'-'+pad(v.getMonth()+1)+'-'+pad(v.getDate())+'T'+pad(v.getHours())+':'+pad(v.getMinutes());
+  }
+  if(typeof v==='number'){var d=XLSX.SSF.parse_date_code(v);if(!d)return '';
+    if(v<1&&baseDate)return baseDate+'T'+pad(d.H)+':'+pad(d.M);
+    return d.y+'-'+pad(d.m)+'-'+pad(d.d)+'T'+pad(d.H)+':'+pad(d.M);}
+  var s=String(v).trim(),m;
+  if(m=s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})[ T]+(\d{1,2}):(\d{2})/))return m[1]+'-'+pad(+m[2])+'-'+pad(+m[3])+'T'+pad(+m[4])+':'+m[5];
+  if(m=s.match(/^(\d{1,2})[.\-\/](\d{1,2})[ T]+(\d{1,2}):(\d{2})/)){var y=(baseDate||todayISO()).slice(0,4);return y+'-'+pad(+m[1])+'-'+pad(+m[2])+'T'+pad(+m[3])+':'+m[4];}
+  if(m=s.match(/^(\d{1,2}):(\d{2})/)&&baseDate)return baseDate+'T'+pad(+m[1])+':'+m[2];
+  return '';
+}
+function norm(h){return String(h||'').replace(/\s+/g,'').toLowerCase();}
+function parseSheet(ws){
+  var aoa=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+  var hr=-1;for(var i=0;i<Math.min(aoa.length,40);i++){var n=aoa[i].map(norm);if(n.indexOf('일자')>=0&&(n.indexOf('공장')>=0||n.indexOf('line명')>=0)){hr=i;break;}}
+  if(hr<0)return [];
+  var H=aoa[hr].map(norm),idx={},owners=[];
+  H.forEach(function(h,c){
+    var map={'일자':'date','공장':'factory','shift':'shift','line명':'line','line':'line','공정명':'process','model명':'model','model':'model','구분':'category','품명':'item','문제항목':'problem','대책현황':'action','결과':'result','start':'start','end':'end','loss시간':'lossMin','loss시간(분)':'lossMin','확인':'confirm'};
+    if(h==='담당')owners.push(c);else if(map[h]&&idx[map[h]]==null)idx[map[h]]=c;
+  });
+  var out=[];
+  for(var r=hr+1;r<aoa.length;r++){
+    var row=aoa[r];function g(k){return idx[k]!=null?row[idx[k]]:'';}
+    var rec={date:xlDate(g('date')),factory:String(g('factory')||'').replace(/[^0-9]/g,''),line:String(g('line')||'').trim(),process:String(g('process')||'').trim(),model:String(g('model')||'').trim(),
+      category:String(g('category')||'').trim(),item:String(g('item')||'').trim(),problem:String(g('problem')||'').trim(),action:String(g('action')||'').trim(),result:String(g('result')||'').trim(),
+      owner:owners[0]!=null?String(row[owners[0]]||'').trim():'',owner2:owners[1]!=null?String(row[owners[1]]||'').trim():'',confirm:String(g('confirm')||'').trim()};
+    rec.start=xlDT(g('start'),rec.date);rec.end=xlDT(g('end'),rec.date);
+    if(rec.start&&rec.end&&rec.end<rec.start&&rec.end.slice(0,10)===rec.start.slice(0,10)){var e=new Date(rec.end);e.setDate(e.getDate()+1);rec.end=e.getFullYear()+'-'+pad(e.getMonth()+1)+'-'+pad(e.getDate())+'T'+rec.end.slice(11);} // 자정 넘김
+    if(!rec.date&&!rec.line&&!rec.problem&&!rec.process)continue;
+    var lm=lossMin(rec.start,rec.end);rec.lossMin=lm!=null?lm:(g('lossMin')!==''&&!isNaN(Number(g('lossMin')))?Number(g('lossMin')):null);
+    var sh=String(g('shift')||'').replace(/[^0-9]/g,'');rec.shift=rec.start?shiftOf(rec.start):(sh||'');
+    if(CATEGORIES.indexOf(rec.category)<0&&rec.category){var cu=rec.category.toUpperCase();rec.category=(cu==='JIG'||cu==='PACK')?cu:'기타';}
+    rec.problemFiles=[];rec.actionFiles=[];rec.id=uid();rec.createdAt=Date.now()+r;rec.updatedAt=rec.createdAt;
+    out.push(rec);
+  }
+  return out;
+}
+function importExcel(file){
+  var rd=new FileReader();
+  rd.onload=async function(e){
+    var recs=[];
+    try{var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      var names=wb.SheetNames.slice().sort(function(a,b){return (b.indexOf('등록')>=0)-(a.indexOf('등록')>=0);});
+      for(var i=0;i<names.length&&!recs.length;i++)recs=parseSheet(wb.Sheets[names[i]]);
+    }catch(err){console.error(err);toast(t('imp.fail'),'error');return;}
+    if(!recs.length){toast(t('imp.none'),'error');return;}
+    var mode=RECORDS.length?await ask(t('imp.title'),t('imp.msg',{n:recs.length,m:RECORDS.length}),[{label:t('btn.cancel'),value:null},{label:t('imp.replace'),cls:'btn-danger',value:'replace'},{label:t('imp.append'),cls:'btn-primary',value:'append'}]):'append';
+    if(!mode)return;
+    if(mode==='replace'){
+      await tx('records','readwrite',function(s){s.clear();});await tx('files','readwrite',function(s){s.clear();});RECORDS=[];
+    }
+    await tx('records','readwrite',function(s){recs.forEach(function(r){s.put(r);});});
+    RECORDS=RECORDS.concat(recs);
+    // 엑셀에 있는 모델을 모델 목록에 보강
+    var have={};mList('model',false).forEach(function(m){have[m.name.toLowerCase()]=1;});
+    for(var ri=0;ri<recs.length;ri++){var mn=recs[ri].model;if(mn&&!have[mn.toLowerCase()]){have[mn.toLowerCase()]=1;var nm={id:uid(),type:'model',name:mn,customer:'',note:'',active:true,createdAt:Date.now()};await putMaster(nm);MASTER.push(nm);}}
+    renderMasterCounts();
+    toast(t('imp.done',{n:recs.length}),'success');markSaved();renderAll();
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+/* ---------- 기본정보 (모델 · 라인 · 직원) ---------- */
+function putMaster(m){return tx('master','readwrite',function(s){s.put(m);});}
+function delMaster(id){return tx('master','readwrite',function(s){s.delete(id);});}
+async function loadMaster(){
+  MASTER=await getAll('master');
+  if(!MASTER.some(function(m){return m.type==='model';})){ // 최초 1회: 기존 모델 목록 이관
+    var names=['HDX-3005'];try{var v=JSON.parse(localStorage.getItem(MODEL_KEY)||'null');if(Array.isArray(v)&&v.length)names=v;}catch(e){}
+    for(var i=0;i<names.length;i++){var m={id:uid(),type:'model',name:names[i],customer:'',note:'',active:true,createdAt:Date.now()+i};await putMaster(m);MASTER.push(m);}
+  }
+}
+var MSCHEMA={
+  model:{fields:[{k:'name',l:'col.model',req:1},{k:'customer',l:'m.customer'},{k:'active',l:'m.status',type:'active'},{k:'note',l:'m.note'}]},
+  line:{fields:[{k:'name',l:'col.line',req:1},{k:'factory',l:'col.factory',type:'factory',req:1},{k:'active',l:'m.status',type:'active'},{k:'note',l:'m.note'}]},
+  staff:{fields:[{k:'name',l:'m.staffName',req:1},{k:'empNo',l:'m.empNo'},{k:'dept',l:'m.dept'},{k:'position',l:'m.position'},{k:'phone',l:'m.phone',type:'phone'},{k:'factory',l:'col.factory',type:'factory'},{k:'notify',l:'m.notify',type:'yesno'},{k:'active',l:'m.status',type:'active'},{k:'note',l:'m.note',span:4}]}
+};
+var mType='model',mEdit=null;
+function usageOf(type,name){
+  if(!name)return 0;
+  return RECORDS.filter(function(r){
+    if(type==='model')return r.model===name;
+    if(type==='line')return r.line===name;
+    return r.owner===name||r.owner2===name||r.confirm===name;
+  }).length;
+}
+function facLabel(v){return v?(v+(lang==='ko'?' 공장':'F')):'-';}
+function renderMasterCounts(){['model','line','staff'].forEach(function(tp){$('cnt-'+tp).textContent=mList(tp,false).length;});}
+function renderMasterForm(){
+  var sc=MSCHEMA[mType],cur=mEdit?MASTER.find(function(m){return m.id===mEdit;}):null,box=$('mFormBox');
+  box.classList.toggle('editing',!!cur);
+  var html='<div class="m-form-title"><span class="tag">'+esc(t(cur?'m.editTag':'m.newTag'))+'</span>'+esc(cur?t('m.editing',{name:cur.name}):t('m.formTitle.'+mType))+'</div><div class="form-grid">';
+  sc.fields.forEach(function(f){
+    var v=cur?cur[f.k]:(f.type==='active'||f.type==='yesno'?true:''),id='mf-'+f.k;
+    html+='<div class="f-field'+(f.span?' span-'+f.span:'')+'"><label>'+esc(t(f.l))+(f.req?'<span class="req">*</span>':'')+'</label>';
+    if(f.type==='factory'){html+='<select id="'+id+'">'+(f.req?'<option value="">'+esc(t('m.choose'))+'</option>':'<option value="">-</option>')+FACTORIES.map(function(x){return '<option value="'+x+'"'+(String(v)===x?' selected':'')+'>'+esc(facLabel(x))+'</option>';}).join('')+'</select>';}
+    else if(f.type==='yesno'){html+='<select id="'+id+'"><option value="1"'+(v===true?' selected':'')+'>'+esc(t('m.notifyOn'))+'</option><option value="0"'+(v!==true?' selected':'')+'>'+esc(t('m.notifyOff'))+'</option></select>';}
+    else if(f.type==='phone'){html+='<input type="tel" id="'+id+'" value="'+esc(v||'')+'" placeholder="010-1234-5678" autocomplete="off">';}
+    else if(f.type==='active'){html+='<select id="'+id+'"><option value="1"'+(v!==false?' selected':'')+'>'+esc(t('m.active'))+'</option><option value="0"'+(v===false?' selected':'')+'>'+esc(t('m.inactive'))+'</option></select>';}
+    else html+='<input type="text" id="'+id+'" value="'+esc(v||'')+'" autocomplete="off">';
+    html+='</div>';
+  });
+  html+='</div><div class="form-actions">';
+  if(cur)html+='<button class="btn" id="mCancel">'+esc(t('btn.cancel'))+'</button><button class="btn btn-primary" id="mSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>'+esc(t('btn.update'))+'</button>';
+  else html+='<button class="btn" id="mClear">'+esc(t('m.clear'))+'</button><button class="btn btn-primary" id="mSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>'+esc(t('btn.add'))+'</button>';
+  box.innerHTML=html+'</div>';
+  $('mSave').onclick=saveMaster;
+  if($('mCancel'))$('mCancel').onclick=function(){mEdit=null;renderMaster();};
+  if($('mClear'))$('mClear').onclick=function(){renderMasterForm();$('mf-name').focus();};
+  box.querySelectorAll('input').forEach(function(i){i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();saveMaster();}});});
+}
+function renderMasterTable(){
+  var sc=MSCHEMA[mType],kw=$('m-search').value.trim().toLowerCase();
+  var all=mList(mType,false),rows=all.filter(function(m){if(!kw)return true;return sc.fields.some(function(f){var v=f.type==='factory'?facLabel(m[f.k]):m[f.k];return f.type!=='active'&&String(v||'').toLowerCase().indexOf(kw)>=0;});});
+  var cols=['#'].concat(sc.fields.filter(function(f){return f.type!=='active';}).map(function(f){return t(f.l);})).concat([t('m.status'),t('m.usage'),t('col.manage')]);
+  $('mHead').innerHTML=cols.map(function(c,i){return '<th'+(i===0||i>=cols.length-3?' style="text-align:center"':'')+'>'+esc(c)+'</th>';}).join('');
+  $('mBody').innerHTML=rows.map(function(m,i){
+    var u=usageOf(mType,m.name);
+    return '<tr class="'+(m.id===mEdit?'row-editing':'')+'" data-mid="'+m.id+'"><td class="nw mono" style="text-align:center;color:var(--ink-400)">'+(i+1)+'</td>'+
+      sc.fields.filter(function(f){return f.type!=='active';}).map(function(f){
+        var v=m[f.k];
+        if(f.k==='name')return '<td class="nw"><b style="color:var(--navy-800)">'+esc(v)+'</b></td>';
+        if(f.type==='yesno')return '<td class="nw">'+(v===true?'<span class="badge st-on">🔔 '+esc(t('m.notifyOn'))+'</span>':'<span class="badge st-off">'+esc(t('m.notifyOff'))+'</span>')+'</td>';
+        if(f.type==='phone')return '<td class="nw mono">'+esc(v||'')+'</td>';
+        if(f.type==='factory')return '<td class="nw">'+esc(facLabel(v))+'</td>';
+        return '<td>'+esc(v||'')+'</td>';}).join('')+
+      '<td style="text-align:center"><span class="badge '+(m.active!==false?'st-on':'st-off')+'">'+esc(t(m.active!==false?'m.active':'m.inactive'))+'</span></td>'+
+      '<td style="text-align:center"><span class="usage'+(u?'':' zero')+'">'+u+'</span></td>'+
+      '<td><div class="row-actions"><button class="icon-btn" data-medit="'+m.id+'" title="Edit">'+ICON_EDIT+'</button><button class="icon-btn del" data-mdel="'+m.id+'" title="Delete">'+ICON_DEL+'</button></div></td></tr>';
+  }).join('');
+  $('mEmpty').style.display=rows.length?'none':'flex';
+  $('mEmptyTitle').textContent=t(all.length?'empty.ftitle':'m.emptyTitle');
+  $('mEmptySub').textContent=all.length?t('empty.fsub'):t('m.emptySub');
+  var act=all.filter(function(m){return m.active!==false;}).length;
+  $('mCount').innerHTML=t('m.count',{n:'<b>'+all.length+'</b>',a:'<b>'+act+'</b>'});
+}
+function renderMaster(){
+  renderMasterCounts();
+  $('dataPane').style.display=mType==='data'?'block':'none';$('kakaoPane').style.display=mType==='kakao'?'block':'none';
+  $('masterPane').style.display=(mType==='data'||mType==='kakao')?'none':'block';
+  if(mType==='data'){renderDataPane();return;}
+  if(mType==='kakao'){renderKakaoPane();return;}
+  renderMasterForm();renderMasterTable();
+}
+async function saveMaster(){
+  if(!dbReady())return;
+  var sc=MSCHEMA[mType],cur=mEdit?MASTER.find(function(m){return m.id===mEdit;}):null,v={};
+  sc.fields.forEach(function(f){var el=$('mf-'+f.k);v[f.k]=(f.type==='active'||f.type==='yesno')?el.value==='1':el.value.trim();});
+  if(v.phone!==undefined&&v.phone){var dg=v.phone.replace(/[^0-9]/g,'');if(dg.length<10||dg.length>11){toast(t('m.phoneErr'),'error');$('mf-phone').focus();return;}v.phone=dg.length===11?dg.slice(0,3)+'-'+dg.slice(3,7)+'-'+dg.slice(7):dg.slice(0,3)+'-'+dg.slice(3,6)+'-'+dg.slice(6);}
+  var miss=sc.fields.filter(function(f){return f.req&&!v[f.k];}).map(function(f){return t(f.l);});
+  if(miss.length){toast(t('err.required')+miss.join(', '),'error');return;}
+  var dup=MASTER.find(function(m){return m.type===mType&&m.id!==(cur&&cur.id)&&String(m.name).toLowerCase()===v.name.toLowerCase();});
+  if(dup){toast(t('m.dup',{name:v.name}),'error');$('mf-name').focus();return;}
+  var cascade=false;
+  if(cur&&cur.name!==v.name){
+    var u=usageOf(mType,cur.name);
+    if(u){var ans=await ask(t('m.renameTitle'),t('m.renameMsg',{old:cur.name,nw:v.name,n:u}),[{label:t('btn.cancel'),value:null},{label:t('m.renameOnly'),value:'only'},{label:t('m.renameAll'),cls:'btn-primary',value:'all'}]);
+      if(!ans)return;cascade=ans==='all';}
+  }
+  var rec=Object.assign({},cur||{id:uid(),type:mType,createdAt:Date.now()},v,{updatedAt:Date.now()});
+  await putMaster(rec);
+  var idx=MASTER.findIndex(function(m){return m.id===rec.id;});if(idx>=0)MASTER[idx]=rec;else MASTER.push(rec);
+  if(cascade){
+    var oldN=cur.name,changed=[];
+    RECORDS.forEach(function(r){var ch=false;
+      if(mType==='model'&&r.model===oldN){r.model=v.name;ch=true;}
+      if(mType==='line'&&r.line===oldN){r.line=v.name;ch=true;}
+      if(mType==='staff'){['owner','owner2','confirm'].forEach(function(k){if(r[k]===oldN){r[k]=v.name;ch=true;}});}
+      if(ch){r.updatedAt=Date.now();changed.push(r);}});
+    await tx('records','readwrite',function(s){changed.forEach(function(r){s.put(r);});});
+  }
+  toast(t(cur?'msg.updated':'m.added'),'success');
+  mEdit=null;markSaved();renderMaster();renderAll();
+  if(!cur)setTimeout(function(){$('mf-name').focus();},30);
+}
+async function deleteMaster(id){
+  var m=MASTER.find(function(x){return x.id===id;});if(!m)return;
+  var u=usageOf(m.type,m.name);
+  var msg=t('m.delMsg',{name:m.name})+(u?'\n\n'+t('m.delUsed',{n:u}):'');
+  var ok=await ask(t('del.title'),msg,[{label:t('btn.cancel'),value:false},{label:t('btn.delete'),cls:'btn-danger',value:true}]);
+  if(!ok)return;
+  await delMaster(id);MASTER=MASTER.filter(function(x){return x.id!==id;});
+  if(mEdit===id)mEdit=null;
+  toast(t('msg.deleted'));markSaved();renderMaster();renderAll();
+}
+$('mTabs').addEventListener('click',function(e){var tb=e.target.closest('.tab');if(!tb)return;mType=tb.dataset.mt;mEdit=null;$('m-search').value='';
+  document.querySelectorAll('#mTabs .tab').forEach(function(x){x.classList.toggle('active',x===tb);});renderMaster();});
+$('m-search').addEventListener('input',renderMasterTable);
+$('mBody').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.medit){mEdit=b.dataset.medit;renderMasterForm();renderMasterTable();$('mFormBox').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(function(){$('mf-name').focus();},200);}
+  else if(b.dataset.mdel)deleteMaster(b.dataset.mdel);});
+$('mBody').addEventListener('dblclick',function(e){var tr=e.target.closest('tr[data-mid]');if(!tr||e.target.closest('button'))return;mEdit=tr.dataset.mid;renderMasterForm();renderMasterTable();});
+// 등록 화면: Line명 선택 시 공장 자동 지정
+$('f-line').addEventListener('change',function(){var m=mList('line',true).find(function(x){return x.name===$('f-line').value.trim();});
+  if(m&&m.factory&&!formState.factory){formState.factory=String(m.factory);renderPills();}});
+
+Object.assign(I18N.ko,{'xl.making':'엑셀 만드는 중...','xl.libFail':'엑셀 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.','xl.fail':'엑셀 내보내기 실패:','xl.clickOpen':'클릭하면 열림','xl.zipTitle':'엑셀 + 첨부파일 저장 완료','xl.zipMsg':'첨부파일 {n}개가 있어 ZIP 파일로 저장했습니다.\n\n① ZIP 파일을 마우스 오른쪽 클릭 → "압축 풀기"\n② 풀린 폴더 안의 엑셀 파일을 엽니다\n③ 그림은 셀에 바로 보이고, 그림·파일 아이콘을 클릭하면 원본이 열립니다\n\n※ 엑셀 파일과 "첨부파일" 폴더는 항상 같은 위치에 두어야 링크가 열립니다.','db.blocked':'⚠ 이 프로그램의 이전 버전이 다른 탭/창에 열려 있어 저장소를 열 수 없습니다.\n다른 탭의 LINE LOSS 화면을 모두 닫으면 자동으로 이어서 열립니다.','db.newer':'새 버전의 프로그램이 다른 탭에서 열렸습니다. 이 탭은 닫거나 새로고침(F5) 해 주세요.','db.notReady':'저장소가 아직 열리지 않았습니다. 다른 탭의 이전 버전 화면을 닫아 주세요.','master.subtitle':'모델 · 라인 · 직원 정보를 등록하고 관리합니다 (등록 화면의 선택 목록에 사용됩니다)','tab.model':'모델 등록','tab.line':'라인 등록','tab.staff':'직원 등록',
+ 'm.customer':'고객사','m.note':'비고','m.status':'사용여부','m.active':'사용','m.inactive':'미사용','m.staffName':'이름','m.empNo':'사번','m.dept':'부서','m.position':'직책','m.usage':'사용 건수','m.choose':'선택',
+ 'btn.add':'등록','btn.update':'수정 저장','m.clear':'입력 초기화','m.newTag':'신규','m.editTag':'수정 중','m.editing':'{name} 정보를 수정합니다',
+ 'm.formTitle.model':'새 모델 등록','m.formTitle.line':'새 라인 등록','m.formTitle.staff':'새 직원 등록','m.searchPh':'목록에서 검색','m.count':'전체 {n}건 · 사용 {a}건',
+ 'm.dup':'"{name}"은(는) 이미 등록되어 있습니다','m.added':'등록되었습니다','m.renameTitle':'이름 변경','m.renameMsg':'"{old}" → "{nw}"\n\n이 이름을 사용하는 LOSS 등록 내역이 {n}건 있습니다.\n기존 등록 내역의 이름도 함께 변경할까요?','m.renameOnly':'기본정보만 변경','m.renameAll':'등록 내역도 함께 변경',
+ 'm.delMsg':'"{name}"을(를) 삭제할까요?','m.delUsed':'※ LOSS 등록 내역 {n}건에서 사용 중입니다. 삭제해도 기존 등록 내역은 그대로 유지됩니다.\n더 이상 쓰지 않는 경우 "미사용"으로 바꾸는 방법도 있습니다.','m.emptyTitle':'등록된 정보가 없습니다','m.emptySub':'위 입력란에 입력 후 "등록"을 눌러 주세요'});
+Object.assign(I18N.en,{'xl.making':'Building Excel...','xl.libFail':'Could not load the Excel library. Check the internet connection.','xl.fail':'Export failed:','xl.clickOpen':'click to open','xl.zipTitle':'Excel + attachments saved','xl.zipMsg':'There are {n} attachments, so a ZIP file was saved.\n\n1) Right-click the ZIP → Extract All\n2) Open the Excel file in the extracted folder\n3) Images show in the cells; click an image or file icon to open the original\n\n※ Keep the Excel file and the "첨부파일" folder together so links work.','db.blocked':'⚠ An older version of this program is open in another tab/window, so storage cannot open.\nClose the other LINE LOSS tabs and it will continue automatically.','db.newer':'A newer version was opened in another tab. Please close or reload (F5) this tab.','db.notReady':'Storage is not open yet. Close the older version in other tabs.','master.subtitle':'Manage models, lines and staff (used as choices on the register screen)','tab.model':'Models','tab.line':'Lines','tab.staff':'Staff',
+ 'm.customer':'Customer','m.note':'Note','m.status':'Status','m.active':'Active','m.inactive':'Inactive','m.staffName':'Name','m.empNo':'Emp. No','m.dept':'Dept','m.position':'Position','m.usage':'Used in','m.choose':'Select',
+ 'btn.add':'Add','btn.update':'Save changes','m.clear':'Clear','m.newTag':'New','m.editTag':'Editing','m.editing':'Editing {name}',
+ 'm.formTitle.model':'Add model','m.formTitle.line':'Add line','m.formTitle.staff':'Add staff','m.searchPh':'Search list','m.count':'Total {n} · active {a}',
+ 'm.dup':'"{name}" already exists','m.added':'Added','m.renameTitle':'Rename','m.renameMsg':'"{old}" → "{nw}"\n\n{n} LOSS records use this name.\nRename it in those records too?','m.renameOnly':'Master only','m.renameAll':'Also update records',
+ 'm.delMsg':'Delete "{name}"?','m.delUsed':'※ Used in {n} LOSS records. Existing records will keep the name.\nYou can also set it to "Inactive" instead.','m.emptyTitle':'Nothing registered yet','m.emptySub':'Fill in the form above and click "Add"'});
+Object.assign(I18N.vi,{'xl.making':'Đang tạo Excel...','xl.libFail':'Không tải được thư viện Excel. Kiểm tra kết nối Internet.','xl.fail':'Xuất Excel lỗi:','xl.clickOpen':'nhấn để mở','xl.zipTitle':'Đã lưu Excel + tệp đính kèm','xl.zipMsg':'Có {n} tệp đính kèm nên đã lưu thành tệp ZIP.\n\n① Nhấn chuột phải vào ZIP → Giải nén\n② Mở tệp Excel trong thư mục đã giải nén\n③ Ảnh hiển thị trong ô; nhấn vào ảnh hoặc biểu tượng tệp để mở bản gốc\n\n※ Luôn để tệp Excel và thư mục "첨부파일" cùng một chỗ.','db.blocked':'⚠ Phiên bản cũ của chương trình đang mở ở tab/cửa sổ khác nên không mở được dữ liệu.\nĐóng các tab LINE LOSS khác, chương trình sẽ tự tiếp tục.','db.newer':'Phiên bản mới đã mở ở tab khác. Hãy đóng hoặc tải lại (F5) tab này.','db.notReady':'Dữ liệu chưa mở được. Hãy đóng phiên bản cũ ở tab khác.','master.subtitle':'Quản lý Model · Line · Nhân viên (dùng làm danh sách chọn khi đăng ký)','tab.model':'Đăng ký Model','tab.line':'Đăng ký Line','tab.staff':'Đăng ký nhân viên',
+ 'm.customer':'Khách hàng','m.note':'Ghi chú','m.status':'Trạng thái','m.active':'Sử dụng','m.inactive':'Không dùng','m.staffName':'Họ tên','m.empNo':'Mã NV','m.dept':'Bộ phận','m.position':'Chức vụ','m.usage':'Số lần dùng','m.choose':'Chọn',
+ 'btn.add':'Đăng ký','btn.update':'Lưu sửa','m.clear':'Xóa nhập','m.newTag':'Mới','m.editTag':'Đang sửa','m.editing':'Đang sửa {name}',
+ 'm.formTitle.model':'Đăng ký Model mới','m.formTitle.line':'Đăng ký Line mới','m.formTitle.staff':'Đăng ký nhân viên mới','m.searchPh':'Tìm trong danh sách','m.count':'Tổng {n} · đang dùng {a}',
+ 'm.dup':'"{name}" đã được đăng ký','m.added':'Đã đăng ký','m.renameTitle':'Đổi tên','m.renameMsg':'"{old}" → "{nw}"\n\nCó {n} bản ghi LOSS dùng tên này.\nĐổi tên trong các bản ghi đó luôn?','m.renameOnly':'Chỉ đổi thông tin cơ bản','m.renameAll':'Đổi cả bản ghi',
+ 'm.delMsg':'Xóa "{name}"?','m.delUsed':'※ Đang dùng trong {n} bản ghi LOSS. Bản ghi cũ vẫn giữ nguyên.\nCó thể chuyển sang "Không dùng" thay vì xóa.','m.emptyTitle':'Chưa có thông tin','m.emptySub':'Nhập ở trên rồi nhấn "Đăng ký"'});
+
+/* ---------- events ---------- */
+document.querySelectorAll('.nav-item').forEach(function(n){n.onclick=function(){
+  document.querySelectorAll('.nav-item').forEach(function(x){x.classList.toggle('active',x===n);});
+  document.querySelectorAll('.section').forEach(function(s){s.classList.toggle('active',s.id===n.getAttribute('data-target'));});
+  if(n.getAttribute('data-target')==='page-master')renderMaster();
+};});
+$('langSelect').value=lang;
+$('langSelect').onchange=function(){lang=this.value;try{localStorage.setItem('lli_lang',lang);}catch(e){}applyI18n();renderAll();renderMaster();updateAutoStatus();updateEmptyBanner();if($('formOverlay').classList.contains('open')){renderPills();updateCalc();}};
+for(var k in F)(function(id){var el=$(id);el.addEventListener(el.tagName==='INPUT'&&el.type==='text'?'input':'change',renderTable);})(F[k]);
+$('btnReset').onclick=function(){for(var k in F)$(F[k]).value='';renderTable();};
+$('btnNew').onclick=function(){openForm(null);};
+$('btnSave').onclick=saveForm;
+$('btnExport').onclick=exportExcel;
+$('btnImport').onclick=function(){$('fileImport').value='';$('fileImport').click();};
+$('fileImport').onchange=function(){if(this.files[0])importExcel(this.files[0]);};
+$('f-start').addEventListener('input',function(){
+  updateCalc();
+  if(this.value&&!editing)$('f-date').value=this.value.slice(0,10);
+});
+$('f-end').addEventListener('input',updateCalc);
+document.querySelectorAll('[data-close]').forEach(function(b){b.onclick=function(){$(b.getAttribute('data-close')).classList.remove('open');};});
+$('tbody').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.edit)openForm(b.dataset.edit);
+  else if(b.dataset.del)deleteRecord(b.dataset.del);
+  else if(b.dataset.view)openViewer(b.dataset.view);
+  else if(b.dataset.kshare)openKShare(RECORDS.find(function(x){return x.id===b.dataset.kshare;}));
+});
+$('tbody').addEventListener('dblclick',function(e){var tr=e.target.closest('tr');if(!tr||e.target.closest('button'))return;var b=tr.querySelector('[data-edit]');if(b)openForm(b.dataset.edit);});
+document.querySelectorAll('.drop').forEach(function(dz){
+  var kind=dz.dataset.kind,inp=dz.querySelector('input[type=file]');
+  dz.querySelector('.att-pick').onclick=function(){inp.value='';inp.click();};
+  inp.onchange=function(){addFiles(kind,inp.files);};
+  dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over');});
+  dz.addEventListener('dragleave',function(){dz.classList.remove('over');});
+  dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files.length)addFiles(kind,e.dataTransfer.files);});
+});
+// Ctrl+V 붙여넣기: 마지막으로 포커스된 영역(문제/대책)에 이미지 첨부
+var lastKind='problem';
+$('f-problem').addEventListener('focus',function(){lastKind='problem';});
+$('f-action').addEventListener('focus',function(){lastKind='action';});
+document.querySelectorAll('.drop').forEach(function(dz){dz.addEventListener('mousedown',function(){lastKind=dz.dataset.kind;});});
+document.addEventListener('paste',function(e){
+  if(!$('formOverlay').classList.contains('open'))return;
+  var items=(e.clipboardData&&e.clipboardData.items)||[],fs=[];
+  for(var i=0;i<items.length;i++)if(items[i].kind==='file'){var f=items[i].getAsFile();if(f)fs.push(f);}
+  if(fs.length){e.preventDefault();addFiles(lastKind,fs);}
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){['confirmOverlay','viewerOverlay','kshareOverlay','formOverlay'].some(function(id){if($(id).classList.contains('open')){$(id).classList.remove('open');return true;}});}});
+
+/* ---------- 데이터 유지: 영구 저장 요청 · 백업 파일 · PC 폴더 자동 백업 ---------- */
+var BK_APP='LineLossIssue',AUTO_FILE='LineLoss_AutoBackup.json';
+var FS_OK=typeof window.showDirectoryPicker==='function';
+var DIR=null,dirPerm='none',dirName='',lastAuto=null,autoTimer=null,autoBusy=false,PERSIST=null,B64CACHE={},bannerClosed=false;
+function metaGet(k){return getOne('meta',k).then(function(r){return r?r.value:null;});}
+function metaSet(k,v){return tx('meta','readwrite',function(s){s.put({key:k,value:v});});}
+function nowStr(d){d=d||new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());}
+async function requestPersist(){
+  try{if(navigator.storage&&navigator.storage.persist){PERSIST=await navigator.storage.persisted();if(!PERSIST)PERSIST=await navigator.storage.persist();}}catch(e){PERSIST=null;}
+}
+async function blobToB64(id,blob){if(B64CACHE[id])return B64CACHE[id];var u=await blobToDataURL(blob);var b=u.slice(u.indexOf(',')+1);B64CACHE[id]=b;return b;}
+function b64ToBlob(b64,type){var bin=atob(b64),n=bin.length,u=new Uint8Array(n);for(var i=0;i<n;i++)u[i]=bin.charCodeAt(i);return new Blob([u],{type:type||'application/octet-stream'});}
+async function buildBackup(){
+  var recs=await getAll('records'),mas=await getAll('master'),fl=await getAll('files'),files=[];
+  for(var i=0;i<fl.length;i++)files.push({id:fl[i].id,name:fl[i].name,type:fl[i].type,data:await blobToB64(fl[i].id,fl[i].blob)});
+  return {app:BK_APP,format:1,savedAt:new Date().toISOString(),counts:{records:recs.length,master:mas.length,files:files.length},records:recs,master:mas,files:files,settings:{kakao:KAKAO}};
+}
+function stampNow(){var d=new Date();return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes());}
+async function downloadBackup(){
+  if(!dbReady())return;
+  var obj=await buildBackup();
+  saveBlob(new Blob([JSON.stringify(obj)],{type:'application/json'}),'LineLoss_Backup_'+stampNow()+'.json');
+  toast(t('bk.downloaded',{n:obj.counts.records}),'success');
+}
+async function restoreFromObject(obj,srcLabel){
+  if(!obj||obj.app!==BK_APP||!Array.isArray(obj.records)){toast(t('bk.invalid'),'error');return false;}
+  var msg=t('bk.restoreMsg',{src:srcLabel||'',date:obj.savedAt?nowStr(new Date(obj.savedAt)):'-',n:obj.records.length,m:(obj.master||[]).length,f:(obj.files||[]).length,cur:RECORDS.length});
+  var mode=await ask(t('bk.restoreTitle'),msg,[{label:t('btn.cancel'),value:null},{label:t('bk.merge'),value:'merge'},{label:t('bk.replace'),cls:'btn-primary',value:'replace'}]);
+  if(!mode)return false;
+  if(mode==='replace'){
+    await tx('records','readwrite',function(s){s.clear();});await tx('files','readwrite',function(s){s.clear();});
+    if((obj.master||[]).length)await tx('master','readwrite',function(s){s.clear();});
+    B64CACHE={};
+  }
+  var files=obj.files||[];
+  for(var i=0;i<files.length;i+=20){var chunk=files.slice(i,i+20);
+    await tx('files','readwrite',function(s){chunk.forEach(function(f){s.put({id:f.id,name:f.name,type:f.type,blob:b64ToBlob(f.data,f.type)});B64CACHE[f.id]=f.data;});});}
+  await tx('records','readwrite',function(s){obj.records.forEach(function(r){s.put(r);});});
+  if((obj.master||[]).length)await tx('master','readwrite',function(s){obj.master.forEach(function(m){s.put(m);});});
+  if(obj.settings&&obj.settings.kakao&&(mode==='replace'||!KAKAO.url)){KAKAO=Object.assign(defaultKakao(),obj.settings.kakao);await metaSet('kakao',KAKAO);}
+  RECORDS=await getAll('records');await loadMaster();
+  toast(t('bk.restored',{n:obj.records.length}),'success');
+  markSaved();renderAll();renderMaster();updateEmptyBanner();
+  return true;
+}
+function pickRestoreFile(){$('fileRestore').value='';$('fileRestore').click();}
+$('fileRestore').onchange=function(){var f=this.files[0];if(!f)return;var rd=new FileReader();
+  rd.onload=async function(){var obj;try{obj=JSON.parse(rd.result);}catch(e){toast(t('bk.invalid'),'error');return;}await restoreFromObject(obj,f.name);};
+  rd.readAsText(f);};
+
+/* PC 폴더 자동 백업 (Chrome / Edge) */
+async function loadDir(){
+  if(!FS_OK)return;
+  try{DIR=await metaGet('backupDir');lastAuto=await metaGet('lastAuto');
+    if(DIR){dirName=DIR.name;dirPerm=await DIR.queryPermission({mode:'readwrite'});}}catch(e){DIR=null;}
+}
+async function readFolderBackup(){
+  try{var fh=await DIR.getFileHandle(AUTO_FILE);var txt=await (await fh.getFile()).text();return JSON.parse(txt);}catch(e){return null;}
+}
+async function writeFolderFile(name,text){var fh=await DIR.getFileHandle(name,{create:true});var w=await fh.createWritable();await w.write(text);await w.close();}
+async function pickFolder(){
+  if(!FS_OK){toast(t('bk.fsNo'),'error');return;}
+  var h;try{h=await window.showDirectoryPicker({id:'lineloss-backup',mode:'readwrite'});}catch(e){return;} // 취소
+  DIR=h;dirName=h.name;dirPerm='granted';await metaSet('backupDir',h);
+  var exist=await readFolderBackup();
+  if(exist&&exist.app===BK_APP&&(exist.records||[]).length){
+    var ans=await ask(t('bk.existTitle'),t('bk.existMsg',{date:exist.savedAt?nowStr(new Date(exist.savedAt)):'-',n:exist.records.length,cur:RECORDS.length}),
+      [{label:t('bk.existLoad'),cls:'btn-primary',value:'load'},{label:t('bk.existOverwrite'),cls:'btn-danger',value:'over'}]);
+    if(ans==='load'){await restoreFromObject(exist,dirName+'/'+AUTO_FILE);renderDataPane();updateAutoStatus();return;}
+    await autoBackupNow(true);
+  }else await autoBackupNow(true);
+  toast(t('bk.folderSet',{name:dirName}),'success');renderDataPane();
+}
+async function reconnectFolder(){
+  if(!DIR){pickFolder();return;}
+  try{dirPerm=await DIR.requestPermission({mode:'readwrite'});}catch(e){dirPerm='denied';}
+  updateAutoStatus();if(mType==='data')renderDataPane();
+  if(dirPerm==='granted'){toast(t('bk.reconnected'),'success');autoBackupNow();}
+}
+async function loadFromFolder(){
+  if(!DIR)return;
+  if(dirPerm!=='granted'){try{dirPerm=await DIR.requestPermission({mode:'readwrite'});}catch(e){}}
+  if(dirPerm!=='granted'){updateAutoStatus();return;}
+  var obj=await readFolderBackup();if(!obj){toast(t('bk.noFolderFile'),'error');return;}
+  await restoreFromObject(obj,dirName+'/'+AUTO_FILE);
+}
+function scheduleAutoBackup(){if(!DIR||dirPerm!=='granted')return;clearTimeout(autoTimer);autoTimer=setTimeout(function(){autoBackupNow();},1500);}
+async function autoBackupNow(force){
+  if(!DIR||dirPerm!=='granted'||!db)return;
+  if(autoBusy){scheduleAutoBackup();return;}
+  autoBusy=true;
+  try{
+    var obj=await buildBackup();
+    if(!force&&obj.records.length===0){ // 빈 데이터로 기존 백업을 덮어쓰지 않도록 보호
+      var ex=await readFolderBackup();if(ex&&(ex.records||[]).length)return;
+    }
+    var txt=JSON.stringify(obj),d=new Date();
+    await writeFolderFile(AUTO_FILE,txt);
+    await writeFolderFile('LineLoss_Backup_'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'.json',txt); // 날짜별 1개 (그날 마지막 상태)
+    lastAuto=d.toISOString();await metaSet('lastAuto',lastAuto);
+  }catch(e){console.error(e);
+    try{dirPerm=await DIR.queryPermission({mode:'readwrite'});}catch(_){dirPerm='prompt';}
+    if(dirPerm==='granted')toast(t('bk.autoFail')+' '+(e.message||''),'error');
+  }finally{autoBusy=false;updateAutoStatus();if(mType==='data'&&$('dataPane').style.display!=='none')renderDataPane();}
+}
+function autoState(){if(!FS_OK)return 'na';if(!DIR)return 'off';return dirPerm==='granted'?'on':'warn';}
+function updateAutoStatus(){
+  var el=$('autoStatus'),st=autoState();
+  if(st==='na'){el.style.display='none';return;}
+  el.style.display='flex';el.className='auto-status '+st;
+  $('autoStatusText').textContent=st==='on'?t('bk.sideOn',{time:lastAuto?nowStr(new Date(lastAuto)).slice(11):'-'}):st==='warn'?t('bk.sideWarn'):t('bk.sideOff');
+}
+$('autoStatus').onclick=function(){var st=autoState();if(st==='warn')reconnectFolder();else goDataTab();};
+function goDataTab(){
+  document.querySelector('.nav-item[data-target=page-master]').click();
+  var tb=document.querySelector('#mTabs .tab[data-mt=data]');tb.click();
+}
+function renderDataPane(){
+  var fileCnt=RECORDS.reduce(function(a,r){return a+(r.problemFiles||[]).length+(r.actionFiles||[]).length;},0);
+  var st=autoState();
+  function stat(c,l,v,u){return '<div class="kpi '+c+'"><div class="k-bar"></div><div class="k-label">'+esc(l)+'</div><div class="k-val">'+v+'<span class="k-unit">'+esc(u||'')+'</span></div></div>';}
+  var persistTxt=PERSIST===true?t('bk.persistOn'):PERSIST===false?t('bk.persistOff'):'-';
+  var html='<div class="dp-stats">'+stat('c1',t('bk.stRecords'),fmtNum(RECORDS.length),t('u.case'))+stat('c2',t('bk.stFiles'),fmtNum(fileCnt),t('u.ea'))+
+    stat('c5',t('bk.stMaster'),fmtNum(MASTER.length),t('u.case'))+'<div class="kpi c6"><div class="k-bar"></div><div class="k-label">'+esc(t('bk.stPersist'))+'</div><div class="k-val txt">'+esc(persistTxt)+'</div></div></div>';
+  html+='<div class="dp-grid">';
+  // 자동 백업
+  html+='<div class="dp-card main"><h3><span class="tag">'+esc(t('bk.recommend'))+'</span>'+esc(t('bk.autoTitle'))+'</h3><p>'+esc(t('bk.autoDesc'))+'</p>';
+  if(st==='na')html+='<div class="dp-status off"><span class="dot"></span>'+esc(t('bk.fsNo'))+'</div>';
+  else{
+    var cls=st==='on'?'on':st==='warn'?'warn':'off';
+    var label=st==='on'?t('bk.stOn',{name:dirName}):st==='warn'?t('bk.stWarn',{name:dirName}):t('bk.stOff');
+    html+='<div class="dp-status '+cls+'"><span class="dot"></span>'+esc(label)+(lastAuto&&DIR?'<span class="sub">'+esc(t('bk.last'))+' '+esc(nowStr(new Date(lastAuto)))+'</span>':'')+'</div><div class="btns">';
+    if(st==='warn')html+='<button class="btn btn-primary btn-sm" id="dpReconnect">'+esc(t('bk.btnReconnect'))+'</button>';
+    html+='<button class="btn '+(st==='off'?'btn-primary ':'')+'btn-sm" id="dpPick">'+esc(t(DIR?'bk.btnChange':'bk.btnPick'))+'</button>';
+    if(st==='on')html+='<button class="btn btn-sm" id="dpNow">'+esc(t('bk.btnNow'))+'</button><button class="btn btn-sm" id="dpLoadFolder">'+esc(t('bk.btnLoadFolder'))+'</button>';
+    html+='</div><ol class="dp-steps"><li>'+esc(t('bk.step1'))+'</li><li>'+esc(t('bk.step2'))+'</li><li>'+esc(t('bk.step3'))+'</li></ol>';
+  }
+  html+='</div>';
+  // 수동 백업/복원
+  html+='<div class="dp-card"><h3>'+esc(t('bk.manualTitle'))+'</h3><p>'+esc(t('bk.manualDesc'))+'</p><div class="btns">'+
+    '<button class="btn btn-sm" id="dpDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>'+esc(t('bk.btnDownload'))+'</button>'+
+    '<button class="btn btn-sm" id="dpRestore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>'+esc(t('bk.btnRestore'))+'</button></div>'+
+    '<p style="font-size:11.5px;">'+esc(t('bk.manualTip'))+'</p></div>';
+  html+='</div>';
+  $('dataPane').innerHTML=html;
+  if($('dpPick'))$('dpPick').onclick=pickFolder;
+  if($('dpReconnect'))$('dpReconnect').onclick=reconnectFolder;
+  if($('dpNow'))$('dpNow').onclick=async function(){await autoBackupNow(true);toast(t('bk.savedNow'),'success');};
+  if($('dpLoadFolder'))$('dpLoadFolder').onclick=loadFromFolder;
+  $('dpDownload').onclick=downloadBackup;$('dpRestore').onclick=pickRestoreFile;
+}
+function updateEmptyBanner(){
+  var b=$('emptyBanner');
+  if(RECORDS.length||bannerClosed){b.style.display='none';return;}
+  var btns='<button class="btn btn-sm" id="ebRestore">'+esc(t('bk.btnRestore'))+'</button>';
+  if(DIR)btns='<button class="btn btn-primary btn-sm" id="ebFolder">'+esc(t('bk.btnLoadFolderShort',{name:dirName}))+'</button>'+btns;
+  b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><div class="hb-text">'+t('bk.emptyBanner')+'</div>'+btns+'<button class="hb-x" id="ebX" title="close">×</button>';
+  b.style.display='flex';
+  $('ebRestore').onclick=pickRestoreFile;if($('ebFolder'))$('ebFolder').onclick=loadFromFolder;
+  $('ebX').onclick=function(){bannerClosed=true;b.style.display='none';};
+}
+
+Object.assign(I18N.ko,{'tab.data':'데이터 백업/복원','bk.downloaded':'백업 파일을 저장했습니다 (LOSS {n}건)','bk.invalid':'이 프로그램의 백업 파일이 아닙니다',
+ 'bk.restoreTitle':'백업에서 복원','bk.restoreMsg':'{src}\n백업 시각: {date}\nLOSS 내역 {n}건 · 기본정보 {m}건 · 첨부 {f}개\n\n현재 이 브라우저의 LOSS 내역: {cur}건\n\n• 덮어쓰기: 현재 데이터를 지우고 백업 내용으로 바꿉니다\n• 합치기: 현재 데이터는 두고 백업 내용을 추가합니다 (같은 항목은 백업 내용으로 갱신)',
+ 'bk.merge':'합치기','bk.replace':'덮어쓰기','bk.restored':'복원했습니다 (LOSS {n}건)','bk.fsNo':'이 브라우저는 폴더 자동 백업을 지원하지 않습니다 (Chrome 또는 Edge 사용 권장). 아래 "백업 파일 저장"을 이용해 주세요.',
+ 'bk.existTitle':'폴더에 기존 백업이 있습니다','bk.existMsg':'선택한 폴더에 이미 자동 백업 파일이 있습니다.\n백업 시각: {date} · LOSS {n}건\n현재 이 브라우저의 LOSS 내역: {cur}건\n\n백업 내용을 불러올까요, 아니면 현재 데이터로 백업을 새로 저장할까요?','bk.existLoad':'백업 불러오기','bk.existOverwrite':'현재 데이터로 저장',
+ 'bk.folderSet':'자동 백업 폴더가 "{name}"(으)로 설정되었습니다','bk.reconnected':'자동 백업이 다시 연결되었습니다','bk.noFolderFile':'폴더에 자동 백업 파일이 없습니다','bk.autoFail':'자동 백업 저장 실패:','bk.savedNow':'지금 백업했습니다',
+ 'bk.sideOn':'폴더 자동백업 중 · {time}','bk.sideWarn':'자동백업 일시정지 · 클릭하여 다시 연결','bk.sideOff':'자동백업 폴더 미설정 · 클릭하여 설정',
+ 'bk.stRecords':'저장된 LOSS 내역','bk.stFiles':'첨부 그림/파일','bk.stMaster':'기본정보 (모델·라인·직원)','bk.stPersist':'브라우저 영구 저장','bk.persistOn':'허용됨','bk.persistOff':'일반 저장',
+ 'bk.recommend':'권장','bk.autoTitle':'PC 폴더 자동 백업','bk.autoDesc':'PC의 폴더를 한 번 지정하면 등록·수정·삭제할 때마다 모든 데이터(첨부 포함)가 그 폴더에 자동으로 저장됩니다. 프로그램 파일을 새 버전으로 바꾸거나 브라우저 기록을 지워도, 이 폴더의 백업으로 그대로 되살릴 수 있습니다.',
+ 'bk.stOn':'자동 백업 중 — 폴더: {name}','bk.stWarn':'일시정지 — 폴더: {name} (권한 다시 허용 필요)','bk.stOff':'아직 폴더가 지정되지 않았습니다','bk.last':'마지막 백업','bk.btnReconnect':'다시 연결 (권한 허용)','bk.btnPick':'백업 폴더 지정','bk.btnChange':'폴더 변경','bk.btnNow':'지금 백업','bk.btnLoadFolder':'폴더 백업 불러오기',
+ 'bk.step1':'"백업 폴더 지정"을 눌러 PC의 폴더를 고릅니다 (예: 문서\\LINE_LOSS_DATA)','bk.step2':'브라우저가 묻는 "파일 수정 허용"에서 허용(가능하면 "방문할 때마다 허용")을 누릅니다','bk.step3':'이후 저장할 때마다 LineLoss_AutoBackup.json 과 날짜별 백업 파일이 자동으로 만들어집니다',
+ 'bk.manualTitle':'백업 파일 저장 / 복원','bk.manualDesc':'현재 데이터 전체(첨부 포함)를 백업 파일(.json) 하나로 내려받거나, 백업 파일로 데이터를 되살립니다. 다른 PC나 다른 브라우저로 옮길 때도 사용합니다.','bk.btnDownload':'백업 파일 저장','bk.btnRestore':'백업 파일에서 복원',
+ 'bk.manualTip':'※ 자동 백업 폴더 안의 LineLoss_AutoBackup.json 이나 날짜별 백업 파일도 여기서 복원할 수 있습니다.','bk.btnLoadFolderShort':'자동 백업 폴더에서 불러오기',
+ 'bk.emptyBanner':'<b>이 브라우저에 저장된 LOSS 내역이 없습니다.</b> 이전에 쓰던 데이터가 있다면 백업에서 복원해 주세요. (다른 브라우저/PC로 바꿨거나 브라우저 기록을 지운 경우)'});
+Object.assign(I18N.en,{'tab.data':'Backup / Restore','bk.downloaded':'Backup saved ({n} LOSS records)','bk.invalid':'Not a backup file of this program',
+ 'bk.restoreTitle':'Restore from backup','bk.restoreMsg':'{src}\nBackup time: {date}\n{n} LOSS records · {m} master items · {f} attachments\n\nCurrent LOSS records in this browser: {cur}\n\n• Replace: delete current data and use the backup\n• Merge: keep current data and add the backup (same items are updated)',
+ 'bk.merge':'Merge','bk.replace':'Replace','bk.restored':'Restored ({n} LOSS records)','bk.fsNo':'This browser does not support folder auto-backup (use Chrome or Edge). Use "Save backup file" instead.',
+ 'bk.existTitle':'Existing backup found','bk.existMsg':'The folder already has an auto-backup.\nBackup time: {date} · {n} LOSS records\nCurrent LOSS records here: {cur}\n\nLoad the backup, or save current data over it?','bk.existLoad':'Load backup','bk.existOverwrite':'Save current data',
+ 'bk.folderSet':'Auto-backup folder set to "{name}"','bk.reconnected':'Auto-backup reconnected','bk.noFolderFile':'No auto-backup file in the folder','bk.autoFail':'Auto-backup failed:','bk.savedNow':'Backed up now',
+ 'bk.sideOn':'Folder auto-backup · {time}','bk.sideWarn':'Auto-backup paused · click to reconnect','bk.sideOff':'No backup folder · click to set',
+ 'bk.stRecords':'LOSS records','bk.stFiles':'Attachments','bk.stMaster':'Master (model·line·staff)','bk.stPersist':'Persistent storage','bk.persistOn':'Granted','bk.persistOff':'Normal',
+ 'bk.recommend':'Recommended','bk.autoTitle':'PC folder auto-backup','bk.autoDesc':'Pick a folder on your PC once; every add/edit/delete saves all data (with attachments) there automatically. Even after replacing the program file or clearing browser data, you can restore from this folder.',
+ 'bk.stOn':'Auto-backup on — folder: {name}','bk.stWarn':'Paused — folder: {name} (permission needed)','bk.stOff':'No folder selected yet','bk.last':'Last','bk.btnReconnect':'Reconnect (allow)','bk.btnPick':'Choose backup folder','bk.btnChange':'Change folder','bk.btnNow':'Back up now','bk.btnLoadFolder':'Load folder backup',
+ 'bk.step1':'Click "Choose backup folder" and pick a folder (e.g. Documents\\LINE_LOSS_DATA)','bk.step2':'Allow the browser\'s "edit files" prompt (choose "Allow on every visit" if offered)','bk.step3':'From then on LineLoss_AutoBackup.json and a daily backup file are written automatically',
+ 'bk.manualTitle':'Backup file save / restore','bk.manualDesc':'Download all data (with attachments) as one backup file (.json), or restore from one. Also use this to move to another PC or browser.','bk.btnDownload':'Save backup file','bk.btnRestore':'Restore from file',
+ 'bk.manualTip':'※ You can also restore LineLoss_AutoBackup.json or a daily file from the auto-backup folder here.','bk.btnLoadFolderShort':'Load from backup folder',
+ 'bk.emptyBanner':'<b>No LOSS records in this browser.</b> If you had data before, restore it from a backup (e.g. after changing browser/PC or clearing browser data).'});
+Object.assign(I18N.vi,{'tab.data':'Sao lưu / Khôi phục','bk.downloaded':'Đã lưu tệp sao lưu ({n} bản ghi LOSS)','bk.invalid':'Không phải tệp sao lưu của chương trình này',
+ 'bk.restoreTitle':'Khôi phục từ sao lưu','bk.restoreMsg':'{src}\nThời điểm sao lưu: {date}\n{n} bản ghi LOSS · {m} thông tin cơ bản · {f} tệp đính kèm\n\nBản ghi LOSS hiện có: {cur}\n\n• Ghi đè: xóa dữ liệu hiện tại và dùng bản sao lưu\n• Gộp: giữ dữ liệu hiện tại và thêm bản sao lưu',
+ 'bk.merge':'Gộp','bk.replace':'Ghi đè','bk.restored':'Đã khôi phục ({n} bản ghi LOSS)','bk.fsNo':'Trình duyệt này không hỗ trợ tự động sao lưu vào thư mục (dùng Chrome hoặc Edge). Hãy dùng "Lưu tệp sao lưu".',
+ 'bk.existTitle':'Đã có bản sao lưu trong thư mục','bk.existMsg':'Thư mục đã có tệp tự động sao lưu.\nThời điểm: {date} · {n} bản ghi LOSS\nBản ghi hiện có: {cur}\n\nTải bản sao lưu, hay lưu dữ liệu hiện tại đè lên?','bk.existLoad':'Tải bản sao lưu','bk.existOverwrite':'Lưu dữ liệu hiện tại',
+ 'bk.folderSet':'Đã đặt thư mục sao lưu "{name}"','bk.reconnected':'Đã kết nối lại sao lưu tự động','bk.noFolderFile':'Không có tệp sao lưu trong thư mục','bk.autoFail':'Sao lưu tự động lỗi:','bk.savedNow':'Đã sao lưu',
+ 'bk.sideOn':'Đang tự động sao lưu · {time}','bk.sideWarn':'Tạm dừng sao lưu · nhấn để kết nối lại','bk.sideOff':'Chưa đặt thư mục sao lưu · nhấn để đặt',
+ 'bk.stRecords':'Bản ghi LOSS','bk.stFiles':'Ảnh/tệp đính kèm','bk.stMaster':'Thông tin cơ bản','bk.stPersist':'Lưu trữ lâu dài','bk.persistOn':'Đã cho phép','bk.persistOff':'Bình thường',
+ 'bk.recommend':'Khuyên dùng','bk.autoTitle':'Tự động sao lưu vào thư mục PC','bk.autoDesc':'Chọn một thư mục trên PC một lần; mỗi lần đăng ký/sửa/xóa, toàn bộ dữ liệu (kèm tệp) sẽ tự động lưu vào đó. Dù thay tệp chương trình hay xóa dữ liệu trình duyệt, vẫn khôi phục được từ thư mục này.',
+ 'bk.stOn':'Đang sao lưu — thư mục: {name}','bk.stWarn':'Tạm dừng — thư mục: {name} (cần cho phép lại)','bk.stOff':'Chưa chọn thư mục','bk.last':'Lần cuối','bk.btnReconnect':'Kết nối lại (cho phép)','bk.btnPick':'Chọn thư mục sao lưu','bk.btnChange':'Đổi thư mục','bk.btnNow':'Sao lưu ngay','bk.btnLoadFolder':'Tải từ thư mục',
+ 'bk.step1':'Nhấn "Chọn thư mục sao lưu" và chọn thư mục trên PC','bk.step2':'Cho phép khi trình duyệt hỏi quyền sửa tệp (chọn "Cho phép mỗi lần truy cập" nếu có)','bk.step3':'Sau đó LineLoss_AutoBackup.json và tệp sao lưu theo ngày sẽ được tạo tự động',
+ 'bk.manualTitle':'Lưu / khôi phục tệp sao lưu','bk.manualDesc':'Tải toàn bộ dữ liệu (kèm tệp) thành một tệp sao lưu (.json), hoặc khôi phục từ tệp. Dùng cả khi chuyển sang PC/trình duyệt khác.','bk.btnDownload':'Lưu tệp sao lưu','bk.btnRestore':'Khôi phục từ tệp',
+ 'bk.manualTip':'※ Có thể khôi phục cả LineLoss_AutoBackup.json hoặc tệp theo ngày trong thư mục sao lưu.','bk.btnLoadFolderShort':'Tải từ thư mục sao lưu',
+ 'bk.emptyBanner':'<b>Trình duyệt này chưa có bản ghi LOSS.</b> Nếu đã có dữ liệu trước đây, hãy khôi phục từ bản sao lưu.'});
+
+/* ---------- 카카오 알림톡 (Apps Script 중계 → SOLAPI) ---------- */
+var RELAY_GS="/**\n * LINE LOSS → 카카오 알림톡 중계 스크립트  (Google Apps Script + SOLAPI)\n * ------------------------------------------------------------------\n * 왜 필요한가요?\n *   알림톡 발송 키(API Secret)를 HTML 프로그램 안에 넣으면 누구나 볼 수 있어 위험합니다.\n *   이 스크립트가 키를 안전하게 보관하고, 프로그램이 보낸 내용을 받아 솔라피로 대신 발송합니다.\n *\n * 설정 방법 (자세한 순서는 프로그램의 [기본정보 > 카카오 알림] 탭 참고)\n *   1) script.google.com 에서 새 프로젝트를 만들고 이 코드를 통째로 붙여넣습니다.\n *      (발송 기록을 남기려면 구글 시트에서 [확장 프로그램 > Apps Script]로 만들어 주세요)\n *   2) 왼쪽 톱니바퀴 [프로젝트 설정] > [스크립트 속성]에 아래 값을 추가합니다.\n *        SOLAPI_API_KEY     솔라피 API Key\n *        SOLAPI_API_SECRET  솔라피 API Secret\n *        PF_ID              카카오 채널 연동 후 받은 pfId (솔라피 콘솔에서 확인)\n *        TEMPLATE_ID        승인된 알림톡 템플릿 ID\n *        RELAY_TOKEN        프로그램에 입력할 보안 키 (프로그램에서 [자동 생성]한 값)\n *        FROM_NUMBER        (선택) 알림톡 실패 시 문자로 대신 보낼 발신번호. 비워두면 문자 대체발송 안 함\n *        TEST_NUMBER        (선택) testSend 실행 시 받을 번호\n *   3) [배포 > 새 배포 > 유형: 웹 앱]  실행 사용자: 나 / 액세스 권한: 모든 사용자  → 배포\n *   4) 나온 웹 앱 URL(…/exec)을 프로그램의 [중계 주소]에 붙여넣습니다.\n *   ※ 코드를 고친 뒤에는 [배포 > 배포 관리 > 수정 > 버전: 새 버전]으로 다시 배포해야 반영됩니다.\n */\n\nvar SOLAPI_URL = 'https://api.solapi.com/messages/v4/send-many/detail';\n\nfunction doPost(e) {\n  var out;\n  try {\n    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');\n    var P = PropertiesService.getScriptProperties().getProperties();\n\n    if (!P.RELAY_TOKEN || body.token !== P.RELAY_TOKEN) return json_({ ok: false, error: '보안 키가 일치하지 않습니다' });\n    if (body.ping) return json_({ ok: true, msg: '연결 성공', ready: !!(P.SOLAPI_API_KEY && P.SOLAPI_API_SECRET && P.PF_ID && P.TEMPLATE_ID) });\n    if (!P.SOLAPI_API_KEY || !P.SOLAPI_API_SECRET || !P.PF_ID || !P.TEMPLATE_ID)\n      return json_({ ok: false, error: '스크립트 속성(SOLAPI_API_KEY / SOLAPI_API_SECRET / PF_ID / TEMPLATE_ID)을 먼저 등록해 주세요' });\n\n    var to = (body.to || [])\n      .map(function (n) { return String(n).replace(/[^0-9]/g, ''); })\n      .filter(function (n, i, a) { return n.length >= 10 && a.indexOf(n) === i; });\n    if (!to.length) return json_({ ok: false, error: '받는 사람 번호가 없습니다' });\n\n    var vars = {};\n    Object.keys(body.vars || {}).forEach(function (k) {\n      var v = String(body.vars[k] == null ? '' : body.vars[k]).trim();\n      vars[k] = v === '' ? '-' : v.slice(0, 300); // 알림톡 변수는 빈 값 불가\n    });\n\n    var messages = to.map(function (n) {\n      var m = { to: n, kakaoOptions: { pfId: P.PF_ID, templateId: P.TEMPLATE_ID, variables: vars, disableSms: !P.FROM_NUMBER } };\n      if (P.FROM_NUMBER) m.from = String(P.FROM_NUMBER).replace(/[^0-9]/g, '');\n      return m;\n    });\n\n    var res = UrlFetchApp.fetch(SOLAPI_URL, {\n      method: 'post',\n      contentType: 'application/json',\n      headers: { Authorization: solapiAuth_(P.SOLAPI_API_KEY, P.SOLAPI_API_SECRET) },\n      payload: JSON.stringify({ messages: messages }),\n      muteHttpExceptions: true\n    });\n    var code = res.getResponseCode(), txt = res.getContentText(), data = {};\n    try { data = JSON.parse(txt); } catch (_) {}\n    var failed = (data.failedMessageList || []).length;\n    out = {\n      ok: code < 300 && failed < messages.length,\n      code: code,\n      sent: messages.length - failed,\n      failed: failed,\n      error: code < 300 ? (failed ? JSON.stringify(data.failedMessageList).slice(0, 300) : '') : (data.errorMessage || txt.slice(0, 300))\n    };\n    log_(body, to, out);\n  } catch (err) {\n    out = { ok: false, error: String(err) };\n  }\n  return json_(out);\n}\n\nfunction doGet() {\n  return json_({ ok: true, msg: 'LINE LOSS 알림 중계가 동작 중입니다' });\n}\n\n/** SOLAPI 인증 헤더: HMAC-SHA256( date + salt , API Secret ) → 16진수 */\nfunction solapiAuth_(apiKey, apiSecret) {\n  var date = Utilities.formatDate(new Date(), 'UTC', \"yyyy-MM-dd'T'HH:mm:ss'Z'\");\n  var salt = Utilities.getUuid().replace(/-/g, ''); // 32자\n  var sig = Utilities.computeHmacSha256Signature(date + salt, apiSecret, Utilities.Charset.UTF_8);\n  var hex = sig.map(function (b) { var v = (b < 0 ? b + 256 : b).toString(16); return v.length < 2 ? '0' + v : v; }).join('');\n  return 'HMAC-SHA256 apiKey=' + apiKey + ', date=' + date + ', salt=' + salt + ', signature=' + hex;\n}\n\nfunction json_(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\n\n/** 구글 시트에 연결된 스크립트라면 '발송기록' 시트에 기록합니다 (없으면 건너뜀) */\nfunction log_(body, to, out) {\n  try {\n    var ss = SpreadsheetApp.getActiveSpreadsheet();\n    if (!ss) return;\n    var sh = ss.getSheetByName('발송기록') || ss.insertSheet('발송기록');\n    if (sh.getLastRow() === 0) sh.appendRow(['시각', '알림구분', '라인', '문제 항목', '받는 사람', '결과', '상세']);\n    var v = body.vars || {};\n    sh.appendRow([new Date(), v['#{알림구분}'] || '', v['#{라인}'] || '', v['#{문제}'] || '', to.join(', '), out.ok ? '성공' : '실패', out.error || ('발송 ' + out.sent + '건')]);\n  } catch (_) {}\n}\n\n/** 편집기에서 이 함수를 선택해 [실행]하면 TEST_NUMBER로 시험 발송합니다 */\nfunction testSend() {\n  var P = PropertiesService.getScriptProperties().getProperties();\n  var r = doPost({ postData: { contents: JSON.stringify({\n    token: P.RELAY_TOKEN, to: [P.TEST_NUMBER || ''],\n    vars: { '#{알림구분}': '테스트 발송', '#{일자}': '26.11.08', '#{라인}': '3공장 3A-08', '#{공정}': 'LoopBack 검사', '#{모델}': 'HDX-3005',\n            '#{구분}': '검사기', '#{문제}': 'Bolt Pick up 문제', '#{결과}': '진행중', '#{담당}': 'Thuy', '#{Loss}': '60' }\n  }) } });\n  Logger.log(r.getContent());\n}\n";
+var KK_TPL='[LINE LOSS 알림] #{알림구분}\n\n■ 일자: #{일자}\n■ 라인: #{라인}\n■ 공정: #{공정}\n■ 모델: #{모델}\n■ 구분: #{구분}\n■ 문제 항목: #{문제}\n■ 결과: #{결과}\n■ 담당: #{담당}\n■ Loss 시간: #{Loss}분\n\n본 메시지는 LINE LOSS 관리 시스템에 등록된 내용에 따라 발송되는 업무 알림입니다.';
+var KK_PRICE=13; // 솔라피 알림톡 건당 단가(원, VAT 별도) — 2026-11 기준
+function defaultKakao(){return {shareAuto:true,jsKey:'',enabled:false,url:'',token:'',ev:{create:true,result:true,improve:false,long:false},longMin:30,toOwners:true,testPhone:''};}
+var KAKAO=defaultKakao(),KLOG=[];
+async function loadKakao(){try{var k=await metaGet('kakao');if(k)KAKAO=Object.assign(defaultKakao(),k,{ev:Object.assign(defaultKakao().ev,k.ev||{})});KLOG=(await metaGet('kakaoLog'))||[];}catch(e){}}
+function kkTrunc(s,n){s=String(s||'').replace(/\s*\n\s*/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s;}
+function kkVars(r,label){
+  return {'#{알림구분}':label,'#{일자}':fmtDate(r.date)||'-','#{라인}':((r.factory?r.factory+'공장 ':'')+(r.line||'')).trim()||'-','#{공정}':r.process||'-','#{모델}':r.model||'-',
+    '#{구분}':r.category||'-','#{문제}':kkTrunc(r.problem,150)||'-','#{결과}':r.result||'-','#{담당}':[r.owner,r.owner2].filter(Boolean).join(', ')||'-',
+    '#{Loss}':(r.lossMin!=null&&r.lossMin!=='')?String(r.lossMin):'-'};
+}
+function kkFill(vars){var s=KK_TPL;Object.keys(vars).forEach(function(k){s=s.split(k).join(vars[k]);});return s;}
+function kkRecipients(r){ // [{name,phone,why}]
+  var out=[],seen={};
+  function add(m,why){if(!m||!m.phone)return;var d=m.phone.replace(/[^0-9]/g,'');if(d.length<10||seen[d])return;seen[d]=1;out.push({name:m.name,phone:m.phone,why:why});}
+  mList('staff',true).forEach(function(m){if(m.notify===true)add(m,'fixed');});
+  if(r&&KAKAO.toOwners){[r.owner,r.owner2].forEach(function(n){if(!n)return;var m=mList('staff',true).find(function(x){return x.name===n;});add(m,'owner');});}
+  return out;
+}
+function kkEventLabels(v,old){
+  var ev=KAKAO.ev,L=[];
+  if(!old){if(ev.create)L.push('신규 LOSS 등록');}
+  else if(ev.result&&old.result!==v.result)L.push('결과 변경 ('+(old.result||'-')+' → '+(v.result||'-')+')');
+  if(ev.improve&&v.result==='개선필요'&&(!old||old.result!=='개선필요'))L.push('개선필요 발생');
+  var lm=Number(v.lossMin)||0,olm=old?Number(old.lossMin)||0:0;
+  if(ev.long&&lm>=KAKAO.longMin&&(!old||olm<KAKAO.longMin))L.push('Loss '+KAKAO.longMin+'분 이상');
+  return L.filter(function(x,i){return L.indexOf(x)===i;});
+}
+async function kkPost(payload){
+  var body=JSON.stringify(Object.assign({token:KAKAO.token},payload));
+  try{
+    var res=await fetch(KAKAO.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body,redirect:'follow'});
+    var txt=await res.text();try{return JSON.parse(txt);}catch(e){return {ok:false,error:'응답 해석 실패: '+txt.slice(0,120)};}
+  }catch(err){ // 일부 환경에서 응답을 읽지 못하는 경우: 요청만 전송
+    try{await fetch(KAKAO.url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body});return {ok:null,error:'전송 요청됨 (결과 확인 불가)'};}
+    catch(e2){return {ok:false,error:'중계 주소에 연결할 수 없습니다'};}
+  }
+}
+async function kkAddLog(entry){KLOG.unshift(entry);KLOG=KLOG.slice(0,100);try{await metaSet('kakaoLog',KLOG);}catch(e){}if(mType==='kakao'&&$('kakaoPane').style.display!=='none')renderKakaoLog();}
+async function kakaoOnSave(v,old){
+  if(!KAKAO.enabled||!KAKAO.url||!KAKAO.token)return;
+  var labels=kkEventLabels(v,old);if(!labels.length)return;
+  var rc=kkRecipients(v);if(!rc.length){toast(t('kk.noRecipient'),'error');return;}
+  var label=labels.join(' / '),res=await kkPost({to:rc.map(function(x){return x.phone;}),vars:kkVars(v,label)});
+  await kkAddLog({at:new Date().toISOString(),label:label,line:v.line||'',to:rc.map(function(x){return x.name;}).join(', '),n:rc.length,ok:res.ok,msg:res.error||('발송 '+(res.sent!=null?res.sent:rc.length)+'건')});
+  if(res.ok)toast(t('kk.sent',{n:rc.length}),'success');else if(res.ok===null)toast(t('kk.requested'));else toast(t('kk.fail')+' '+(res.error||''),'error');
+}
+function kkSampleRecord(){return RECORDS[0]||{date:todayISO(),factory:'3',line:'3A-08',process:'LoopBack 검사',model:'HDX-3005',category:'검사기',problem:'Bolt Pick up 문제',result:'진행중',owner:'Thuy',lossMin:60};}
+function kkReadForm(){
+  KAKAO.enabled=$('kk-on').classList.contains('on');
+  KAKAO.url=$('kk-url').value.trim();KAKAO.token=$('kk-token').value.trim();
+  KAKAO.ev={create:$('kk-ev-create').checked,result:$('kk-ev-result').checked,improve:$('kk-ev-improve').checked,long:$('kk-ev-long').checked};
+  KAKAO.longMin=Math.max(1,parseInt($('kk-longmin').value,10)||30);KAKAO.toOwners=$('kk-owners').checked;KAKAO.testPhone=$('kk-testphone').value.trim();
+}
+async function kkSave(silent){kkReadForm();await metaSet('kakao',KAKAO);markSaved();if(!silent)toast(t('kk.saved'),'success');renderKakaoPane();}
+function renderKakaoLog(){
+  var h=$('kk-log');if(!h)return;
+  if(!KLOG.length){h.innerHTML='<div class="empty-state" style="padding:24px;"><div class="e-sub">'+esc(t('kk.noLog'))+'</div></div>';return;}
+  h.innerHTML='<div class="table-wrap" style="max-height:300px;"><table class="kk-log"><thead><tr><th>'+esc(t('kk.logAt'))+'</th><th>'+esc(t('kk.logLabel'))+'</th><th>Line</th><th>'+esc(t('kk.logTo'))+'</th><th>'+esc(t('col.result'))+'</th></tr></thead><tbody>'+
+    KLOG.map(function(l){var b=l.ok===true?'<span class="badge b-res-완료">'+esc(t('kk.ok'))+'</span>':l.ok===null?'<span class="badge b-res-진행중">'+esc(t('kk.req'))+'</span>':'<span class="badge b-res-개선필요">'+esc(t('kk.ng'))+'</span>';
+      return '<tr><td class="nw mono">'+esc(nowStr(new Date(l.at)).slice(5))+'</td><td>'+esc(l.label)+'</td><td class="nw">'+esc(l.line)+'</td><td>'+esc(l.to)+' <small style="color:var(--ink-400)">('+l.n+')</small></td><td>'+b+'<div style="font-size:10.5px;color:var(--ink-400);margin-top:2px;">'+esc(l.msg||'')+'</div></td></tr>';}).join('')+'</tbody></table></div>';
+}
+function renderKakaoPane(){
+  var K=KAKAO,rc=kkRecipients(null),ready=K.enabled&&K.url&&K.token;
+  var sample=kkVars(kkSampleRecord(),'신규 LOSS 등록');
+  var isFile=location.protocol==='file:';
+  var shareSt=!K.jsKey?'off':(isFile?'warn':'on');
+  var html='<div class="fs-title" style="margin-bottom:12px;">'+esc(t('ks.m1'))+'</div><div class="dp-grid" style="margin-bottom:24px;">'+
+   '<div class="dp-card main"><h3><span class="tag">'+esc(t('ks.nowTag'))+'</span>'+esc(t('ks.m1Title'))+'</h3><p>'+esc(t('ks.m1Desc'))+'</p>'+
+   '<label class="kk-check"><input type="checkbox" id="ks-auto"'+(K.shareAuto?' checked':'')+'>'+esc(t('ks.auto'))+'</label>'+
+   '<div class="dp-status '+(shareSt==='on'?'on':shareSt==='warn'?'warn':'off')+'"><span class="dot"></span>'+esc(shareSt==='on'?t('ks.stOn'):shareSt==='warn'?t('ks.stFile'):t('ks.stCopy'))+'</div>'+
+   '<div class="kk-row"><div class="f-field"><label>'+esc(t('ks.jsKey'))+'</label><input type="text" id="ks-jskey" class="mono" value="'+esc(K.jsKey)+'" placeholder="'+esc(t('ks.jsKeyPh'))+'" autocomplete="off"></div><button class="btn btn-primary btn-sm" id="ks-savekey" style="margin-bottom:2px;">'+esc(t('btn.save'))+'</button></div>'+
+   '<p style="font-size:11.5px;">'+esc(t('ks.domainNow',{d:isFile?t('ks.fileNone'):location.origin}))+'</p></div>'+
+   '<div class="dp-card"><h3>'+esc(t('ks.guideTitle'))+'</h3><ol class="dp-steps">'+['ks.g1','ks.g2','ks.g3','ks.g4','ks.g5'].map(function(k){return '<li>'+t(k,{d:isFile?'https://mswon133-web.github.io':location.origin})+'</li>';}).join('')+'</ol>'+
+   '<p style="font-size:11.5px;">'+esc(t('ks.guideNote'))+'</p></div></div>'+
+   '<div class="fs-title" style="margin-bottom:12px;">'+esc(t('ks.m2'))+'</div>';
+  html+='<div class="dp-grid">';
+  // 1. 연결 설정
+  html+='<div class="dp-card main"><h3>'+esc(t('kk.connTitle'))+'</h3>'+
+   '<div class="dp-status '+(ready?'on':(K.url?'warn':'off'))+'"><span class="dot"></span>'+esc(ready?t('kk.stOn'):(K.url?t('kk.stPaused'):t('kk.stOff')))+'</div>'+
+   '<div class="kk-row"><div class="f-field" style="flex:0 0 auto;min-width:0;"><label>'+esc(t('kk.use'))+'</label><div class="kk-switch"><button id="kk-on" class="'+(K.enabled?'on':'')+'">'+esc(t('kk.on'))+'</button><button id="kk-off" class="off '+(K.enabled?'':'on')+'">'+esc(t('kk.off'))+'</button></div></div></div>'+
+   '<div class="f-field"><label>'+esc(t('kk.url'))+'</label><input type="text" id="kk-url" value="'+esc(K.url)+'" placeholder="https://script.google.com/macros/s/…/exec"></div>'+
+   '<div class="kk-row"><div class="f-field"><label>'+esc(t('kk.token'))+'</label><input type="text" id="kk-token" value="'+esc(K.token)+'" class="mono" autocomplete="off"></div><button class="btn btn-sm" id="kk-gen" style="margin-bottom:2px;">'+esc(t('kk.gen'))+'</button></div>'+
+   '<div class="f-hint">'+esc(t('kk.tokenHint'))+'</div>'+
+   '<div class="btns"><button class="btn btn-primary btn-sm" id="kk-save">'+esc(t('btn.save'))+'</button><button class="btn btn-sm" id="kk-ping">'+esc(t('kk.ping'))+'</button></div></div>';
+  // 2. 알림 시점 + 받는 사람
+  html+='<div class="dp-card"><h3>'+esc(t('kk.whenTitle'))+'</h3><div>'+
+   '<label class="kk-check"><input type="checkbox" id="kk-ev-create"'+(K.ev.create?' checked':'')+'>'+esc(t('kk.evCreate'))+'</label>'+
+   '<label class="kk-check"><input type="checkbox" id="kk-ev-result"'+(K.ev.result?' checked':'')+'>'+esc(t('kk.evResult'))+'</label>'+
+   '<label class="kk-check"><input type="checkbox" id="kk-ev-improve"'+(K.ev.improve?' checked':'')+'>'+esc(t('kk.evImprove'))+'</label>'+
+   '<label class="kk-check"><input type="checkbox" id="kk-ev-long"'+(K.ev.long?' checked':'')+'>Loss <input type="number" min="1" class="num" id="kk-longmin" value="'+K.longMin+'"> '+esc(t('kk.evLong'))+'</label></div>'+
+   '<h3 style="margin-top:6px;">'+esc(t('kk.whoTitle'))+' <span class="cnt" style="font-size:11px;color:var(--ink-500);font-weight:600;">'+rc.length+esc(t('kk.people'))+'</span></h3>'+
+   (rc.length?'<div class="kk-chips">'+rc.map(function(x){return '<span class="kk-chip">🔔 '+esc(x.name)+' <small>'+esc(x.phone)+'</small></span>';}).join('')+'</div>':'<div class="f-hint" style="font-size:12px;color:var(--red);">'+esc(t('kk.noFixed'))+'</div>')+
+   '<label class="kk-check"><input type="checkbox" id="kk-owners"'+(K.toOwners?' checked':'')+'>'+esc(t('kk.toOwners'))+'</label>'+
+   '<p>'+esc(t('kk.whoHint'))+' <a href="#" id="kk-gostaff" style="color:var(--blue);font-weight:700;">'+esc(t('kk.goStaff'))+'</a></p>'+
+   '<p style="font-size:11.5px;">'+esc(t('kk.cost',{p:KK_PRICE,n:rc.length,c:fmtNum(rc.length*KK_PRICE)}))+'</p></div>';
+  // 3. 미리보기 + 테스트
+  html+='<div class="dp-card"><h3>'+esc(t('kk.previewTitle'))+'</h3><div class="kk-preview"><div class="kk-bubble"><div class="hd">알림톡 도착</div><div class="bd">'+esc(kkFill(sample))+'</div></div></div>'+
+   '<div class="kk-row"><div class="f-field"><label>'+esc(t('kk.testPhone'))+'</label><input type="tel" id="kk-testphone" value="'+esc(K.testPhone)+'" placeholder="010-1234-5678"></div><button class="btn btn-sm" id="kk-test" style="margin-bottom:2px;">'+esc(t('kk.testSend'))+'</button></div></div>';
+  // 4. 발송 기록
+  html+='<div class="dp-card"><h3>'+esc(t('kk.logTitle'))+'</h3><div id="kk-log"></div></div>';
+  // 5. 설정 가이드
+  html+='<div class="dp-card span2"><h3><span class="tag">'+esc(t('kk.guideTag'))+'</span>'+esc(t('kk.guideTitle'))+'</h3>'+
+   '<ol class="dp-steps">'+['kk.g1','kk.g2','kk.g3','kk.g4','kk.g5','kk.g6','kk.g7'].map(function(k){return '<li>'+t(k)+'</li>';}).join('')+'</ol>'+
+   '<div class="btns"><button class="btn btn-sm" id="kk-copytpl">'+esc(t('kk.copyTpl'))+'</button><button class="btn btn-sm" id="kk-dlgs">'+esc(t('kk.dlGs'))+'</button></div>'+
+   '<div class="kk-tpl">'+esc(KK_TPL)+'</div><p style="font-size:11.5px;">'+esc(t('kk.tplNote'))+'</p></div>';
+  html+='</div>';
+  $('kakaoPane').innerHTML=html;renderKakaoLog();
+  $('ks-auto').onchange=async function(){KAKAO.shareAuto=this.checked;await metaSet('kakao',KAKAO);markSaved();toast(t('kk.saved'),'success');};
+  $('ks-savekey').onclick=async function(){var k=$('ks-jskey').value.trim();if(k&&!/^[0-9a-f]{32}$/i.test(k)){toast(t('ks.keyErr'),'error');return;}KAKAO.jsKey=k;await metaSet('kakao',KAKAO);markSaved();toast(t('kk.saved'),'success');renderKakaoPane();};
+  $('kk-on').onclick=function(){$('kk-on').classList.add('on');$('kk-off').classList.remove('on');};
+  $('kk-off').onclick=function(){$('kk-off').classList.add('on');$('kk-on').classList.remove('on');};
+  $('kk-gen').onclick=function(){var a=new Uint8Array(16);crypto.getRandomValues(a);$('kk-token').value='LL-'+Array.from(a,function(b){return ('0'+b.toString(16)).slice(-2);}).join('');};
+  $('kk-save').onclick=function(){kkSave(false);};
+  ['kk-ev-create','kk-ev-result','kk-ev-improve','kk-ev-long','kk-owners'].forEach(function(id){$(id).onchange=function(){kkSave(true);};});
+  $('kk-longmin').onchange=function(){kkSave(true);};
+  $('kk-ping').onclick=async function(){kkReadForm();if(!KAKAO.url||!KAKAO.token){toast(t('kk.needUrl'),'error');return;}var r=await kkPost({ping:true});
+    if(r.ok)toast(r.ready?t('kk.pingOk'):t('kk.pingNoKey'),r.ready?'success':'error');else toast((r.error||t('kk.fail')),'error');};
+  $('kk-test').onclick=async function(){kkReadForm();await metaSet('kakao',KAKAO);if(!KAKAO.url||!KAKAO.token){toast(t('kk.needUrl'),'error');return;}
+    var ph=KAKAO.testPhone.replace(/[^0-9]/g,'');if(ph.length<10){toast(t('m.phoneErr'),'error');return;}
+    var v=kkVars(kkSampleRecord(),'테스트 발송'),r=await kkPost({to:[ph],vars:v});
+    await kkAddLog({at:new Date().toISOString(),label:'테스트 발송',line:v['#{라인}'],to:KAKAO.testPhone,n:1,ok:r.ok,msg:r.error||'발송 1건'});
+    if(r.ok)toast(t('kk.sent',{n:1}),'success');else if(r.ok===null)toast(t('kk.requested'));else toast(t('kk.fail')+' '+(r.error||''),'error');};
+  $('kk-gostaff').onclick=function(e){e.preventDefault();document.querySelector('#mTabs .tab[data-mt=staff]').click();};
+  $('kk-copytpl').onclick=function(){var ok=false;try{navigator.clipboard.writeText(KK_TPL);ok=true;}catch(e){}if(!ok){var ta=document.createElement('textarea');ta.value=KK_TPL;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}toast(t('kk.copied'),'success');};
+  $('kk-dlgs').onclick=function(){saveBlob(new Blob([RELAY_GS],{type:'text/plain;charset=utf-8'}),'LineLoss_카카오알림_중계.gs');};
+}
+Object.assign(I18N.ko,{'tab.kakao':'카카오 알림','m.phone':'휴대폰','m.notify':'카톡 알림','m.notifyOn':'받음','m.notifyOff':'안 받음','m.phoneErr':'휴대폰 번호를 확인해 주세요 (예: 010-1234-5678)',
+ 'kk.noRecipient':'카카오 알림을 받을 직원이 없습니다 (기본정보 > 직원 등록에서 휴대폰·알림 설정)','kk.sent':'카카오 알림톡 {n}명에게 발송했습니다','kk.requested':'카카오 알림 전송을 요청했습니다','kk.fail':'카카오 알림 실패:',
+ 'kk.saved':'알림 설정을 저장했습니다','kk.noLog':'아직 발송 기록이 없습니다','kk.logAt':'시각','kk.logLabel':'알림 구분','kk.logTo':'받는 사람','kk.ok':'성공','kk.req':'요청됨','kk.ng':'실패',
+ 'kk.connTitle':'연결 설정','kk.stOn':'사용 중 — 저장할 때 자동으로 알림톡을 보냅니다','kk.stPaused':'사용 안 함 (설정은 저장되어 있음)','kk.stOff':'아직 설정되지 않았습니다 — 아래 설정 가이드를 따라 주세요',
+ 'kk.use':'알림 사용','kk.on':'사용','kk.off':'사용 안 함','kk.url':'중계 주소 (Apps Script 웹 앱 URL)','kk.token':'보안 키','kk.gen':'자동 생성','kk.tokenHint':'중계 스크립트의 RELAY_TOKEN 과 똑같은 값을 넣어야 합니다. 외부인이 중계 주소로 문자를 보내지 못하게 막는 비밀번호입니다.',
+ 'kk.ping':'연결 확인','kk.needUrl':'중계 주소와 보안 키를 먼저 입력해 주세요','kk.pingOk':'중계 연결 성공 — 솔라피 설정도 완료되어 있습니다','kk.pingNoKey':'중계 연결은 됐지만 솔라피 키/템플릿(스크립트 속성)이 아직 없습니다',
+ 'kk.whenTitle':'알림 보내는 시점','kk.evCreate':'새 LOSS 등록할 때','kk.evResult':'결과가 바뀔 때 (예: 진행중 → 완료)','kk.evImprove':'결과가 "개선필요"로 될 때','kk.evLong':'분 이상인 LOSS가 등록될 때',
+ 'kk.whoTitle':'받는 사람','kk.people':'명','kk.noFixed':'알림을 받도록 설정된 직원이 없습니다.','kk.toOwners':'해당 건의 담당자에게도 보내기 (직원 등록에 휴대폰이 있는 경우)','kk.whoHint':'받는 사람은 직원 등록에서 휴대폰 번호와 "카톡 알림: 받음"으로 지정합니다.','kk.goStaff':'직원 등록으로 이동 →',
+ 'kk.cost':'비용 참고: 알림톡 1건 = 받는 사람 1명 기준 약 {p}원(VAT 별도, 솔라피 기준). 현재 고정 수신자 {n}명 → 알림 1회당 약 {c}원.',
+ 'kk.previewTitle':'메시지 미리보기 / 테스트','kk.testPhone':'테스트 받을 번호','kk.testSend':'테스트 발송','kk.logTitle':'발송 기록 (이 PC)',
+ 'kk.guideTag':'처음 1회','kk.guideTitle':'알림톡 설정 가이드',
+ 'kk.g1':'<b>카카오톡 채널 만들기</b> — business.kakao.com 에서 회사 명의 카카오톡 채널을 만들고 <b>비즈니스 인증</b>을 받습니다. (회사 사업자등록증 필요, 보통 회사 대표 계정/총무팀과 협의)',
+ 'kk.g2':'<b>솔라피 가입·채널 연동</b> — solapi.com 가입(회사 명의) → 충전금 충전 → [카카오 채널 연동]에서 위 채널을 연결합니다. API Key / API Secret 을 발급받습니다.',
+ 'kk.g3':'<b>템플릿 등록·심사</b> — 아래 [템플릿 문구 복사]로 복사해 솔라피 [알림톡 템플릿 등록]에 붙여넣고 심사를 요청합니다. 승인되면 템플릿 ID 를 확인합니다. (문구를 바꾸면 프로그램 쪽도 맞춰야 하니 수정이 필요하면 말씀해 주세요)',
+ 'kk.g4':'<b>중계 스크립트 만들기</b> — 구글 시트를 하나 만들고 [확장 프로그램 > Apps Script]를 엽니다. 아래 [중계 스크립트 다운로드] 파일 내용을 통째로 붙여넣고 저장합니다.',
+ 'kk.g5':'<b>스크립트 속성 입력</b> — Apps Script 왼쪽 ⚙[프로젝트 설정] > [스크립트 속성]에 SOLAPI_API_KEY, SOLAPI_API_SECRET, PF_ID, TEMPLATE_ID, RELAY_TOKEN(위 [자동 생성]한 보안 키)을 추가합니다.',
+ 'kk.g6':'<b>웹 앱으로 배포</b> — [배포 > 새 배포 > 웹 앱] 실행 사용자 "나", 액세스 권한 "모든 사용자"로 배포하고, 나온 URL(…/exec)을 위 <b>중계 주소</b>에 붙여넣은 뒤 [저장] → [연결 확인].',
+ 'kk.g7':'<b>직원 지정·테스트</b> — 직원 등록에서 받을 사람의 휴대폰과 "카톡 알림: 받음"을 설정하고, [테스트 발송]으로 확인한 뒤 알림 사용을 "사용"으로 바꿉니다.',
+ 'kk.copyTpl':'템플릿 문구 복사','kk.dlGs':'중계 스크립트 다운로드 (.gs)','kk.copied':'복사했습니다','kk.tplNote':'※ #{ } 부분은 변수입니다. 알림톡은 승인된 문구 그대로만 보낼 수 있어 단톡방 발송은 불가하며, 지정한 사람마다 개별로 발송됩니다. 사내 직원 대상 업무 알림이 심사에서 허용되는지는 카카오 심사 결과에 따릅니다.'});
+Object.assign(I18N.en,{'tab.kakao':'Kakao alerts','m.phone':'Mobile','m.notify':'Kakao alert','m.notifyOn':'On','m.notifyOff':'Off','m.phoneErr':'Check the phone number (e.g. 010-1234-5678)'});
+Object.assign(I18N.vi,{'tab.kakao':'Thông báo Kakao','m.phone':'Điện thoại','m.notify':'Nhận Kakao','m.notifyOn':'Nhận','m.notifyOff':'Không nhận','m.phoneErr':'Kiểm tra số điện thoại (vd: 010-1234-5678)'});
+
+/* ---------- 카카오톡 공유 (Kakao JavaScript SDK · 단톡방/친구 선택 발송) ---------- */
+var KS={rec:null,sel:{}};
+function ksStaffList(){return mList('staff',true);}
+function ksBuild(r){
+  var names=ksStaffList().filter(function(m){return KS.sel[m.id];}).map(function(m){return m.name;});
+  var head='['+t('ks.msgTitle')+']';
+  var lines=[t('ks.mLine')+': '+(((r.factory?r.factory+(lang==='ko'?'공장 ':'F '):'')+(r.line||'')).trim()||'-'),t('ks.mProc')+': '+(r.process||'-')];
+  var tail=[];if(names.length)tail.push(t('ks.mAsk')+': '+names.join(', '));
+  var when=r.start?fmtDT(r.start):fmtDate(r.date);tail.push(when+' '+t('ks.mReg'));
+  var base=head+'\n■ '+lines.join('\n■ ')+'\n■ '+t('ks.mProb')+': ',end='\n'+tail.map(function(x,i){return i===tail.length-1?'('+x+')':'■ '+x;}).join('\n');
+  var prob=String(r.problem||'-').trim(),room=200-base.length-end.length; // 카카오톡 공유 텍스트는 최대 200자
+  if(prob.length>room)prob=prob.slice(0,Math.max(10,room-1))+'…';
+  return base+prob+end;
+}
+function ksRenderStaff(){
+  var list=ksStaffList(),h=$('ks-staff');
+  if(!list.length){h.innerHTML='';$('ks-staff-hint').innerHTML=esc(t('ks.noStaff'));return;}
+  $('ks-staff-hint').textContent=t('ks.staffHint');
+  h.innerHTML=list.map(function(m){return '<span class="kk-chip pick'+(KS.sel[m.id]?' sel':'')+'" data-sid="'+m.id+'">'+(KS.sel[m.id]?'✓ ':'')+esc(m.name)+(m.dept?' <small>'+esc(m.dept)+'</small>':'')+'</span>';}).join('');
+  h.querySelectorAll('.kk-chip').forEach(function(c){c.onclick=function(){var id=c.dataset.sid;KS.sel[id]=!KS.sel[id];ksRenderStaff();ksSetText(ksBuild(KS.rec));};});
+}
+function ksSetText(v){$('ks-text').value=v;ksCount();}
+function ksCount(){var n=$('ks-text').value.length;$('ks-count').textContent=n+' / 200'+(n>200?' — '+t('ks.over'):'');$('ks-count').style.color=n>200?'var(--red)':'';}
+function openKShare(r){
+  if(!r)return;KS.rec=r;KS.sel={};
+  ksStaffList().forEach(function(m){if(m.notify===true||m.name===r.owner||m.name===r.owner2)KS.sel[m.id]=true;});
+  ksRenderStaff();ksSetText(ksBuild(r));
+  var isFile=location.protocol==='file:';
+  $('ks-how').innerHTML=KAKAO.jsKey&&!isFile?t('ks.howShare'):(t('ks.howCopy')+(KAKAO.jsKey&&isFile?'<br>'+t('ks.howFile'):'<br>'+t('ks.howSetup')));
+  $('ks-native').style.display=navigator.share?'inline-flex':'none';
+  $('kshareOverlay').classList.add('open');
+}
+function ksCopyText(txt){
+  return (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(txt):Promise.reject()).catch(function(){
+    var ta=document.createElement('textarea');ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();var ok=document.execCommand('copy');ta.remove();if(!ok)throw new Error('copy');});
+}
+var kakaoSdkP=null;
+function loadKakaoSdk(){
+  if(window.Kakao&&window.Kakao.Share)return Promise.resolve();
+  if(kakaoSdkP)return kakaoSdkP;
+  kakaoSdkP=new Promise(function(res,rej){var sc=document.createElement('script');sc.src='https://t1.kakaocdn.net/kakao_js_sdk/2.8.4/kakao.min.js';sc.crossOrigin='anonymous';
+    sc.onload=function(){res();};sc.onerror=function(){kakaoSdkP=null;rej(new Error(t('ks.sdkFail')));};document.head.appendChild(sc);});
+  return kakaoSdkP;
+}
+var ksInitKey='';
+async function ksShare(txt){
+  if(!KAKAO.jsKey||location.protocol==='file:'){
+    await ksCopyText(txt).catch(function(){});
+    ask(t('ks.copyTitle'),t(location.protocol==='file:'&&KAKAO.jsKey?'ks.fileMsg':'ks.noKeyMsg'),[{label:t('kk.goSetting'),value:'set'},{label:t('btn.close'),cls:'btn-primary',value:false}]).then(function(v){if(v==='set'){$('kshareOverlay').classList.remove('open');document.querySelector('.nav-item[data-target=page-master]').click();document.querySelector('#mTabs .tab[data-mt=kakao]').click();}});
+    return;
+  }
+  try{
+    await loadKakaoSdk();
+    if(!window.Kakao.isInitialized()){window.Kakao.init(KAKAO.jsKey);ksInitKey=KAKAO.jsKey;}
+    else if(ksInitKey&&ksInitKey!==KAKAO.jsKey){window.Kakao.cleanup();window.Kakao.init(KAKAO.jsKey);ksInitKey=KAKAO.jsKey;}
+    var url=location.href.split('#')[0];
+    window.Kakao.Share.sendDefault({objectType:'text',text:txt.slice(0,200),link:{webUrl:url,mobileWebUrl:url},buttonTitle:'LINE LOSS'});
+  }catch(e){console.error(e);await ksCopyText(txt).catch(function(){});toast(t('ks.shareFail')+' '+(e.message||''),'error');}
+}
+$('ks-text').addEventListener('input',ksCount);
+$('ks-send').onclick=function(){ksShare($('ks-text').value);};
+$('ks-copy').onclick=function(){ksCopyText($('ks-text').value).then(function(){toast(t('ks.copied'),'success');},function(){toast(t('ks.copyFail'),'error');});};
+$('ks-native').onclick=function(){navigator.share({title:'LINE LOSS',text:$('ks-text').value}).catch(function(){});};
+
+Object.assign(I18N.ko,{'ks.title':'카카오톡으로 문제 알리기','ks.who':'확인 요청할 직원 (메시지에 이름이 들어갑니다)','ks.msg':'보낼 메시지','ks.native':'다른 앱으로 공유','ks.copy':'메시지 복사','ks.send':'카카오톡으로 보내기',
+ 'ks.msgTitle':'LINE LOSS 문제 발생','ks.mLine':'라인','ks.mProc':'공정','ks.mProb':'문제','ks.mAsk':'확인 요청','ks.mReg':'등록',
+ 'ks.noStaff':'등록된 직원이 없습니다. 기본정보 > 직원 등록에서 직원을 추가하면 여기서 고를 수 있습니다.','ks.staffHint':'눌러서 선택/해제 — 카톡 알림 "받음" 직원과 해당 건 담당자가 미리 선택됩니다.','ks.over':'카카오톡 공유는 200자까지만 보내집니다',
+ 'ks.howShare':'<b>[카카오톡으로 보내기]</b>를 누르면 카카오톡 창이 열립니다 → <b>보낼 친구나 단톡방을 선택</b>하고 [보내기]를 누르세요. (처음 한 번은 카카오 로그인이 필요합니다)',
+ 'ks.howCopy':'<b>지금 바로 쓰는 방법:</b> [메시지 복사]를 누른 뒤 카카오톡 PC/모바일의 대화방(단톡방 포함)에 <b>붙여넣기(Ctrl+V)</b> 하세요.',
+ 'ks.howSetup':'카카오 JavaScript 키를 한 번 설정하면, 복사 없이 버튼 하나로 카카오톡 창이 열립니다 (기본정보 > 카카오 알림).','ks.howFile':'※ 지금은 PC 파일로 열려 있어 카카오톡 창 열기가 안 됩니다. 웹 주소(GitHub Pages)로 열면 됩니다.',
+ 'ks.copied':'메시지를 복사했습니다 — 카카오톡 대화방에 붙여넣기(Ctrl+V) 하세요','ks.copyFail':'복사하지 못했습니다. 메시지를 직접 선택해 복사해 주세요','ks.copyTitle':'메시지를 복사했습니다',
+ 'ks.noKeyMsg':'카카오톡 대화방(단톡방 포함)을 열고 붙여넣기(Ctrl+V) 하면 바로 보낼 수 있습니다.\n\n버튼 하나로 카카오톡 창이 열리게 하려면\n기본정보 > 카카오 알림 에서 카카오 JavaScript 키를 설정해 주세요. (무료, 약 5분)',
+ 'ks.fileMsg':'카카오톡 대화방에 붙여넣기(Ctrl+V) 하면 바로 보낼 수 있습니다.\n\n카카오톡 창 열기는 카카오 정책상 등록된 웹 주소에서만 동작합니다.\n지금은 PC 파일(file://)로 열려 있어 사용할 수 없으니, 프로그램을 GitHub Pages 등 웹 주소에 올려 열어 주세요.',
+ 'kk.goSetting':'설정 보기','ks.sdkFail':'카카오 SDK를 불러오지 못했습니다 (인터넷 연결 확인)','ks.shareFail':'카카오톡 공유 실패 (메시지는 복사해 두었습니다):','ks.keyErr':'JavaScript 키는 영문/숫자 32자리입니다',
+ 'ks.m1':'방법 1 · 카카오톡 공유 — 문제 등록 시 바로 보내기 (무료)','ks.nowTag':'바로 사용','ks.m1Title':'문제 등록 → 카카오톡으로 보내기',
+ 'ks.m1Desc':'LOSS 문제를 등록하면 라인명·공정명·문제 항목이 담긴 메시지 창이 자동으로 뜹니다. 받을 직원을 고르고 카카오톡으로 보내거나(친구·단톡방 선택), 복사해서 대화방에 붙여넣을 수 있습니다. 표의 노란 말풍선 버튼으로 언제든 다시 보낼 수 있습니다.',
+ 'ks.auto':'새 LOSS 등록 후 카카오톡 보내기 창 자동으로 열기','ks.stOn':'카카오톡 창 열기 사용 가능','ks.stFile':'JavaScript 키 설정됨 — 단, PC 파일로 열려 있어 지금은 복사 방식만 가능 (웹 주소로 열어 주세요)','ks.stCopy':'지금은 "메시지 복사 → 붙여넣기" 방식으로 동작합니다',
+ 'ks.jsKey':'카카오 JavaScript 키 (선택)','ks.jsKeyPh':'영문/숫자 32자리','ks.domainNow':'현재 프로그램 주소: {d}','ks.fileNone':'PC 파일(file://) — 카카오톡 창 열기를 쓰려면 웹 주소 필요',
+ 'ks.guideTitle':'카카오톡 창 열기 설정 (처음 1회, 약 5분, 무료)',
+ 'ks.g1':'<b>developers.kakao.com</b> 에 카카오 계정으로 로그인 → [내 애플리케이션] > <b>[애플리케이션 추가하기]</b> (앱 이름: LINE LOSS)',
+ 'ks.g2':'만든 앱의 <b>[앱 키]</b>에서 <b>JavaScript 키</b>를 복사합니다.',
+ 'ks.g3':'[플랫폼] > <b>[Web 플랫폼 등록]</b>(또는 JavaScript SDK 도메인)에 프로그램 웹 주소를 등록합니다: <b>{d}</b>',
+ 'ks.g4':'프로그램을 그 웹 주소로 엽니다. (PC 파일로 열면 카카오 정책상 동작하지 않습니다 — GitHub Pages 에 올려 쓰시면 됩니다)',
+ 'ks.g5':'왼쪽 <b>카카오 JavaScript 키</b> 칸에 붙여넣고 [저장] → 문제 등록 후 [카카오톡으로 보내기]로 확인합니다.',
+ 'ks.guideNote':'※ 카카오 정책상 메시지는 보내는 사람이 카카오톡 창에서 받는 사람(친구/단톡방)을 직접 선택해야 하며, 사람 손을 거치지 않는 완전 자동 발송은 회사 채널이 필요한 "방법 2 · 알림톡"만 가능합니다.',
+ 'ks.m2':'방법 2 · 알림톡 자동 발송 (회사 카카오 채널 · 솔라피 계약 필요 — 준비되면 사용)'});
+Object.assign(I18N.en,{'ks.title':'Send issue via KakaoTalk','ks.who':'Staff to ask for check (names are added to the message)','ks.msg':'Message','ks.native':'Share to other app','ks.copy':'Copy message','ks.send':'Send via KakaoTalk',
+ 'ks.msgTitle':'LINE LOSS issue','ks.mLine':'Line','ks.mProc':'Process','ks.mProb':'Issue','ks.mAsk':'Please check','ks.mReg':'registered','ks.copied':'Copied — paste (Ctrl+V) into a KakaoTalk chat','ks.over':'KakaoTalk share sends up to 200 characters',
+ 'ks.staffHint':'Click to select/deselect.','ks.noStaff':'No staff registered (Master Data > Staff).',
+ 'ks.howShare':'Click <b>[Send via KakaoTalk]</b>, then choose friends or a group chat in the KakaoTalk window.','ks.howCopy':'<b>Works now:</b> click [Copy message] and paste (Ctrl+V) into a KakaoTalk chat (group chats too).','ks.howSetup':'Set a Kakao JavaScript key once to open KakaoTalk with one click (Master Data > Kakao alerts).','ks.howFile':'※ Opened as a local file, so the KakaoTalk window cannot open. Open it from a web address.'});
+Object.assign(I18N.vi,{'ks.title':'Gửi vấn đề qua KakaoTalk','ks.who':'Nhân viên cần kiểm tra (tên sẽ được thêm vào tin nhắn)','ks.msg':'Tin nhắn','ks.native':'Chia sẻ qua ứng dụng khác','ks.copy':'Sao chép tin nhắn','ks.send':'Gửi qua KakaoTalk',
+ 'ks.msgTitle':'LINE LOSS phát sinh vấn đề','ks.mLine':'Line','ks.mProc':'Công đoạn','ks.mProb':'Vấn đề','ks.mAsk':'Đề nghị kiểm tra','ks.mReg':'đăng ký','ks.copied':'Đã sao chép — dán (Ctrl+V) vào phòng chat KakaoTalk','ks.over':'KakaoTalk chỉ gửi tối đa 200 ký tự',
+ 'ks.staffHint':'Nhấn để chọn/bỏ chọn.','ks.noStaff':'Chưa có nhân viên (Thông tin cơ bản > Nhân viên).',
+ 'ks.howShare':'Nhấn <b>[Gửi qua KakaoTalk]</b>, rồi chọn bạn bè hoặc nhóm chat trong cửa sổ KakaoTalk.','ks.howCopy':'<b>Dùng ngay:</b> nhấn [Sao chép tin nhắn] rồi dán (Ctrl+V) vào phòng chat KakaoTalk (cả nhóm chat).','ks.howSetup':'Cài đặt JavaScript key của Kakao một lần để mở KakaoTalk bằng một nút.','ks.howFile':'※ Đang mở dạng tệp trên PC nên không mở được cửa sổ KakaoTalk.'});
+
+window.addEventListener('unhandledrejection',function(e){console.error(e.reason);toast((e.reason&&e.reason.message)||String(e.reason),'error');});
+/* ---------- init ---------- */
+(async function(){
+  applyI18n();
+  try{await openDB();RECORDS=await getAll('records');await loadMaster();await loadDir();await loadKakao();}catch(e){console.error(e);toast('IndexedDB error','error');}
+  await requestPersist();
+  renderAll();renderMaster();updateAutoStatus();updateEmptyBanner();
+})();
+</script>
+</body>
+</html>
