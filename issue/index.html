@@ -295,6 +295,13 @@ tr.row-editing td{background:var(--blue-soft)!important;}
 .ks-how b{color:var(--navy-800);}
 .icon-btn.kshare{color:#8a6d00;}
 .icon-btn.kshare:hover{background:#fff7b3;border-color:#e6cf00;color:#3c1e1e;}
+.ks-room{margin-top:14px;display:flex;align-items:center;gap:12px;background:#fff9c4;border:1px solid #f1df5c;border-radius:10px;padding:12px 14px;}
+.ks-room .ic{width:38px;height:38px;border-radius:12px;background:#fee500;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+.ks-room .lb{font-size:11px;color:#7a6400;font-weight:700;}
+.ks-room .nm{font-size:15px;font-weight:800;color:#3c1e1e;}
+.ks-room .sub{font-size:11.5px;color:#7a6400;margin-top:1px;}
+.ks-steps{margin:6px 0 0;padding-left:18px;}
+.ks-steps li{margin:2px 0;}
 @media (max-width:1200px){.kpi-row{grid-template-columns:repeat(3,1fr);}}
 @media (max-width:900px){.form-grid{grid-template-columns:repeat(2,1fr);}.span-4{grid-column:span 2;}}
 @media (max-width:760px){
@@ -556,6 +563,7 @@ tr.row-editing td{background:var(--blue-soft)!important;}
         <label><span data-i18n="ks.msg">보낼 메시지</span> <span class="f-hint" id="ks-count" style="margin-left:auto;"></span></label>
         <textarea id="ks-text" style="min-height:150px;font-size:13.5px;line-height:1.6;"></textarea>
       </div>
+      <div class="ks-room" id="ks-room"></div>
       <div class="ks-how" id="ks-how"></div>
     </div>
     <div class="m-foot" style="flex-wrap:wrap;">
@@ -1549,7 +1557,7 @@ var RELAY_GS="/**\n * LINE LOSS → 카카오 알림톡 중계 스크립트  (Go
 var KK_TPL='[LINE LOSS 알림] #{알림구분}\n\n■ 일자: #{일자}\n■ 라인: #{라인}\n■ 공정: #{공정}\n■ 모델: #{모델}\n■ 구분: #{구분}\n■ 문제 항목: #{문제}\n■ 결과: #{결과}\n■ 담당: #{담당}\n■ Loss 시간: #{Loss}분\n\n본 메시지는 LINE LOSS 관리 시스템에 등록된 내용에 따라 발송되는 업무 알림입니다.';
 var KK_PRICE=13; // 솔라피 알림톡 건당 단가(원, VAT 별도) — 2026-11 기준
 var KAKAO_JS_KEY_DEFAULT='7367d15fa92428f2dac8b2b5f28b0804'; // 카카오디벨로퍼스 앱 'LINE LOSS'(ID 1641467) JavaScript 키 — https://mswon133-web.github.io 에서만 동작
-function defaultKakao(){return {shareAuto:true,jsKey:KAKAO_JS_KEY_DEFAULT,enabled:false,url:'',token:'',ev:{create:true,result:true,improve:false,long:false},longMin:30,toOwners:true,testPhone:''};}
+function defaultKakao(){return {roomName:'LINE LOSS 알림',shareAuto:true,jsKey:KAKAO_JS_KEY_DEFAULT,enabled:false,url:'',token:'',ev:{create:true,result:true,improve:false,long:false},longMin:30,toOwners:true,testPhone:''};}
 var KAKAO=defaultKakao(),KLOG=[];
 async function loadKakao(){try{var k=await metaGet('kakao');if(k)KAKAO=Object.assign(defaultKakao(),k,{ev:Object.assign(defaultKakao().ev,k.ev||{})});if(!KAKAO.jsKey)KAKAO.jsKey=KAKAO_JS_KEY_DEFAULT;KLOG=(await metaGet('kakaoLog'))||[];}catch(e){}}
 function kkTrunc(s,n){s=String(s||'').replace(/\s*\n\s*/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s;}
@@ -1619,7 +1627,11 @@ function renderKakaoPane(){
    '<label class="kk-check"><input type="checkbox" id="ks-auto"'+(K.shareAuto?' checked':'')+'>'+esc(t('ks.auto'))+'</label>'+
    '<div class="dp-status '+(shareSt==='on'?'on':shareSt==='warn'?'warn':'off')+'"><span class="dot"></span>'+esc(shareSt==='on'?t('ks.stOn'):shareSt==='warn'?t('ks.stFile'):t('ks.stCopy'))+'</div>'+
    '<div class="kk-row"><div class="f-field"><label>'+esc(t('ks.jsKey'))+'</label><input type="text" id="ks-jskey" class="mono" value="'+esc(K.jsKey)+'" placeholder="'+esc(t('ks.jsKeyPh'))+'" autocomplete="off"></div><button class="btn btn-primary btn-sm" id="ks-savekey" style="margin-bottom:2px;">'+esc(t('btn.save'))+'</button></div>'+
+   '<div class="kk-row"><div class="f-field"><label>'+esc(t('ks.roomSet'))+'</label><input type="text" id="ks-roomname" value="'+esc(K.roomName||'')+'" placeholder="LINE LOSS 알림"></div><button class="btn btn-primary btn-sm" id="ks-saveroom" style="margin-bottom:2px;">'+esc(t('btn.save'))+'</button></div>'+
    '<p style="font-size:11.5px;">'+esc(t('ks.domainNow',{d:isFile?t('ks.fileNone'):location.origin}))+'</p></div>'+
+   '<div class="dp-card"><h3><span class="tag">'+esc(t('ks.roomTag'))+'</span>'+esc(t('ks.roomGuideTitle',{room:K.roomName||'LINE LOSS 알림'}))+'</h3><ol class="dp-steps">'+['ks.r1','ks.r2','ks.r3','ks.r4'].map(function(k){return '<li>'+t(k,{room:esc(K.roomName||'LINE LOSS 알림')})+'</li>';}).join('')+'</ol></div>'+
+   '<div class="dp-card"><h3>'+esc(t('ks.staffGuideTitle'))+'</h3><ol class="dp-steps">'+['ks.e1','ks.e2','ks.e3','ks.e4'].map(function(k){return '<li>'+t(k,{room:esc(K.roomName||'LINE LOSS 알림'),url:esc(location.protocol==='file:'?'https://mswon133-web.github.io/lineloss/issue/':location.href.split('?')[0].split('#')[0])})+'</li>';}).join('')+'</ol>'+
+   '<div class="btns"><button class="btn btn-sm" id="ks-copyguide">'+esc(t('ks.copyGuide'))+'</button></div></div>'+
    '<div class="dp-card"><h3>'+esc(t('ks.guideTitle'))+'</h3><ol class="dp-steps">'+['ks.g1','ks.g2','ks.g3','ks.g4','ks.g5'].map(function(k){return '<li>'+t(k,{d:isFile?'https://mswon133-web.github.io':location.origin})+'</li>';}).join('')+'</ol>'+
    '<p style="font-size:11.5px;">'+esc(t('ks.guideNote'))+'</p></div></div>'+
    '<div class="fs-title" style="margin-bottom:12px;">'+esc(t('ks.m2'))+'</div>';
@@ -1656,6 +1668,9 @@ function renderKakaoPane(){
   html+='</div>';
   $('kakaoPane').innerHTML=html;renderKakaoLog();
   $('ks-auto').onchange=async function(){KAKAO.shareAuto=this.checked;await metaSet('kakao',KAKAO);markSaved();toast(t('kk.saved'),'success');};
+  $('ks-saveroom').onclick=async function(){KAKAO.roomName=$('ks-roomname').value.trim()||'LINE LOSS 알림';await metaSet('kakao',KAKAO);markSaved();toast(t('kk.saved'),'success');renderKakaoPane();};
+  $('ks-copyguide').onclick=function(){var room=KAKAO.roomName||'LINE LOSS 알림',url=location.protocol==='file:'?'https://mswon133-web.github.io/lineloss/issue/':location.href.split('?')[0].split('#')[0];
+    ksCopyText(t('ks.guideMsg',{room:room,url:url})).then(function(){toast(t('ks.guideCopied'),'success');});};
   $('ks-savekey').onclick=async function(){var k=$('ks-jskey').value.trim();if(k&&!/^[0-9a-f]{32}$/i.test(k)){toast(t('ks.keyErr'),'error');return;}KAKAO.jsKey=k;await metaSet('kakao',KAKAO);markSaved();toast(t('kk.saved'),'success');renderKakaoPane();};
   $('kk-on').onclick=function(){$('kk-on').classList.add('on');$('kk-off').classList.remove('on');};
   $('kk-off').onclick=function(){$('kk-off').classList.add('on');$('kk-on').classList.remove('on');};
@@ -1724,7 +1739,11 @@ function openKShare(r){
   ksStaffList().forEach(function(m){if(m.notify===true||m.name===r.owner||m.name===r.owner2)KS.sel[m.id]=true;});
   ksRenderStaff();ksSetText(ksBuild(r));
   var isFile=location.protocol==='file:';
-  $('ks-how').innerHTML=KAKAO.jsKey&&!isFile?t('ks.howShare'):(t('ks.howCopy')+(KAKAO.jsKey&&isFile?'<br>'+t('ks.howFile'):'<br>'+t('ks.howSetup')));
+  var room=KAKAO.roomName||'LINE LOSS 알림',canShare=KAKAO.jsKey&&!isFile;
+  $('ks-room').innerHTML='<div class="ic">💬</div><div><div class="lb">'+esc(t('ks.roomLb'))+'</div><div class="nm">'+esc(room)+'</div><div class="sub">'+esc(t('ks.roomSub'))+'</div></div>';
+  $('ks-how').innerHTML=canShare
+    ?'<ol class="ks-steps"><li>'+t('ks.s1')+'</li><li>'+t('ks.s2',{room:esc(room)})+'</li><li>'+t('ks.s3')+'</li></ol><div style="margin-top:6px;font-size:11.5px;color:var(--ink-500);">'+t('ks.sFirst')+'</div>'
+    :'<ol class="ks-steps"><li>'+t('ks.c1')+'</li><li>'+t('ks.c2',{room:esc(room)})+'</li><li>'+t('ks.c3')+'</li></ol>'+(KAKAO.jsKey&&isFile?'<div style="margin-top:6px;font-size:11.5px;color:var(--ink-500);">'+t('ks.howFile')+'</div>':'');
   $('ks-native').style.display=navigator.share?'inline-flex':'none';
   $('kshareOverlay').classList.add('open');
 }
@@ -1757,7 +1776,7 @@ async function ksShare(txt){
 }
 $('ks-text').addEventListener('input',ksCount);
 $('ks-send').onclick=function(){ksShare($('ks-text').value);};
-$('ks-copy').onclick=function(){ksCopyText($('ks-text').value).then(function(){toast(t('ks.copied'),'success');},function(){toast(t('ks.copyFail'),'error');});};
+$('ks-copy').onclick=function(){ksCopyText($('ks-text').value).then(function(){toast(t('ks.copiedRoom',{room:KAKAO.roomName||'LINE LOSS 알림'}),'success');},function(){toast(t('ks.copyFail'),'error');});};
 $('ks-native').onclick=function(){navigator.share({title:'LINE LOSS',text:$('ks-text').value}).catch(function(){});};
 
 Object.assign(I18N.ko,{'ks.title':'카카오톡으로 문제 알리기','ks.who':'확인 요청할 직원 (메시지에 이름이 들어갑니다)','ks.msg':'보낼 메시지','ks.native':'다른 앱으로 공유','ks.copy':'메시지 복사','ks.send':'카카오톡으로 보내기',
@@ -1790,6 +1809,26 @@ Object.assign(I18N.vi,{'ks.title':'Gửi vấn đề qua KakaoTalk','ks.who':'Nh
  'ks.msgTitle':'LINE LOSS phát sinh vấn đề','ks.mLine':'Line','ks.mProc':'Công đoạn','ks.mProb':'Vấn đề','ks.mAsk':'Đề nghị kiểm tra','ks.mReg':'đăng ký','ks.copied':'Đã sao chép — dán (Ctrl+V) vào phòng chat KakaoTalk','ks.over':'KakaoTalk chỉ gửi tối đa 200 ký tự',
  'ks.staffHint':'Nhấn để chọn/bỏ chọn.','ks.noStaff':'Chưa có nhân viên (Thông tin cơ bản > Nhân viên).',
  'ks.howShare':'Nhấn <b>[Gửi qua KakaoTalk]</b>, rồi chọn bạn bè hoặc nhóm chat trong cửa sổ KakaoTalk.','ks.howCopy':'<b>Dùng ngay:</b> nhấn [Sao chép tin nhắn] rồi dán (Ctrl+V) vào phòng chat KakaoTalk (cả nhóm chat).','ks.howSetup':'Cài đặt JavaScript key của Kakao một lần để mở KakaoTalk bằng một nút.','ks.howFile':'※ Đang mở dạng tệp trên PC nên không mở được cửa sổ KakaoTalk.'});
+
+Object.assign(I18N.ko,{'ks.roomLb':'보낼 곳','ks.roomSub':'카카오톡 선택 창에서 이 단톡방을 고르세요',
+ 's':'','ks.s1':'아래 <b>[카카오톡으로 보내기]</b>를 누릅니다.','ks.s2':'열린 카카오톡 창에서 <b>[채팅]</b> 탭 → <b>"{room}"</b> 단톡방을 선택(검색 가능)합니다.','ks.s3':'<b>[보내기]</b>를 누르면 단톡방 멤버 전원이 받습니다.',
+ 'ks.sFirst':'※ 처음 한 번은 본인 카카오 로그인 + 휴대폰 카카오톡 인증이 필요합니다.',
+ 'ks.c1':'<b>[메시지 복사]</b>를 누릅니다.','ks.c2':'PC 카카오톡에서 <b>"{room}"</b> 단톡방을 엽니다.','ks.c3':'<b>Ctrl+V</b>로 붙여넣고 [전송]합니다.',
+ 'ks.copiedRoom':'복사했습니다 — 카카오톡 "{room}" 단톡방에 붙여넣기(Ctrl+V) 하세요',
+ 'ks.roomSet':'알림 단톡방 이름','ks.roomTag':'처음 1회','ks.roomGuideTitle':'"{room}" 단톡방 만들기',
+ 'ks.r1':'PC 카카오톡 → <b>채팅</b> 탭 → 오른쪽 위 <b>말풍선+ 아이콘(새로운 채팅)</b> → <b>일반채팅</b>',
+ 'ks.r2':'알림을 받을 직원(관리자·담당 엔지니어·반장 등)을 모두 선택합니다. <b>문제를 등록·발송하는 직원도 반드시 넣어야</b> 그 방으로 보낼 수 있습니다.',
+ 'ks.r3':'채팅방 이름을 <b>{room}</b> 으로 정하고 [확인]을 누릅니다. (이름이 다르면 왼쪽 "알림 단톡방 이름"을 같게 바꿔 저장)',
+ 'ks.r4':'나중에 사람이 바뀌면 단톡방에서 초대/내보내기만 하면 됩니다. 프로그램은 수정할 필요가 없습니다.',
+ 'ks.staffGuideTitle':'직원 사용 안내 (각자 PC에서 처음 1회)',
+ 'ks.e1':'Chrome 으로 <b>{url}</b> 을 엽니다. (즐겨찾기 추가 권장)','ks.e2':'문제 등록 → 저장 → <b>[카카오톡으로 보내기]</b>를 누르면 카카오 로그인 창이 뜹니다. <b>본인 카카오 계정</b>으로 로그인합니다.',
+ 'ks.e3':'<b>본인 휴대폰 카카오톡</b>의 "카카오계정" 메시지에서 [확인]을 누릅니다. (PC 카카오톡에서는 확인 불가)','ks.e4':'선택 창에서 <b>[채팅] → "{room}"</b> 을 골라 [보내기]. 다음부터는 바로 선택 창이 뜹니다.',
+ 'ks.copyGuide':'직원 안내문 복사 (카톡으로 공유용)','ks.guideCopied':'안내문을 복사했습니다 — 단톡방에 붙여넣어 공지하세요',
+ 'ks.guideMsg':'[LINE LOSS 문제 등록 · 카카오톡 알림 사용 안내]\n\n1) Chrome 으로 아래 주소를 엽니다 (즐겨찾기 추가)\n{url}\n\n2) 문제 등록 → 저장 → [카카오톡으로 보내기]\n   처음 1회: 본인 카카오 계정 로그인 → 휴대폰 카카오톡 "카카오계정" 메시지에서 [확인]\n\n3) 선택 창에서 [채팅] → "{room}" 선택 → [보내기]\n\n※ 카카오톡 창이 안 뜨면 [메시지 복사] 후 이 방에 Ctrl+V 로 붙여넣어도 됩니다.'});
+Object.assign(I18N.en,{'ks.roomLb':'Send to','ks.roomSub':'Choose this group chat in the KakaoTalk picker','ks.s1':'Click <b>[Send via KakaoTalk]</b>.','ks.s2':'In the KakaoTalk window, open the <b>[Chats]</b> tab and choose <b>"{room}"</b>.','ks.s3':'Click <b>[Send]</b> — every member receives it.','ks.sFirst':'※ First time only: Kakao login + confirm on your phone KakaoTalk.',
+ 'ks.c1':'Click <b>[Copy message]</b>.','ks.c2':'Open the <b>"{room}"</b> chat in KakaoTalk.','ks.c3':'Paste with <b>Ctrl+V</b> and send.','ks.copiedRoom':'Copied — paste (Ctrl+V) into the "{room}" chat'});
+Object.assign(I18N.vi,{'ks.roomLb':'Gửi đến','ks.roomSub':'Chọn nhóm chat này trong cửa sổ KakaoTalk','ks.s1':'Nhấn <b>[Gửi qua KakaoTalk]</b>.','ks.s2':'Trong cửa sổ KakaoTalk, chọn tab <b>[Chat]</b> → nhóm <b>"{room}"</b>.','ks.s3':'Nhấn <b>[Gửi]</b> — tất cả thành viên sẽ nhận được.','ks.sFirst':'※ Lần đầu: đăng nhập Kakao + xác nhận trên KakaoTalk điện thoại.',
+ 'ks.c1':'Nhấn <b>[Sao chép tin nhắn]</b>.','ks.c2':'Mở nhóm chat <b>"{room}"</b> trên KakaoTalk.','ks.c3':'Dán bằng <b>Ctrl+V</b> rồi gửi.','ks.copiedRoom':'Đã sao chép — dán (Ctrl+V) vào nhóm "{room}"'});
 
 window.addEventListener('unhandledrejection',function(e){console.error(e.reason);toast((e.reason&&e.reason.message)||String(e.reason),'error');});
 /* ---------- init ---------- */
