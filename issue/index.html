@@ -973,7 +973,8 @@ var XL_HEAD=['일자','공장','SHIFT','Line명','공정명','Model명','구분'
    (압축을 푼 뒤 엑셀을 열면 그림/파일 아이콘 클릭으로 원본이 열립니다) */
 var XL_HEAD2=['일자','공장','SHIFT','Line명','공정명','Model명','구분','품명','문제 항목','문제 첨부','대책 현황','대책 첨부','결과','담당','Start','End','Loss시간','담당','확인'];
 var XL_W2=[10,6,7,10,16,12,9,14,30,27,30,27,10,10,12,12,10,10,10];
-var ATT_FOLDER='첨부파일';
+var ATT_FOLDER='attachments'; // 영문 폴더명 (엑셀 링크 경로 문제 방지)
+function asciiFileName(name,prefix){var m=String(name||'').match(/\.([A-Za-z0-9]{1,8})$/),ext=m?'.'+m[1].toLowerCase():'';var base=String(name||'').slice(0,m?-m[0].length:undefined).replace(/[^A-Za-z0-9_-]+/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'').slice(0,40);return prefix+(base?'_'+base:'')+ext;}
 function blobToDataURL(b){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result);};r.onerror=rej;r.readAsDataURL(b);});}
 function loadImg(blob){return new Promise(function(res,rej){var u=URL.createObjectURL(blob),im=new Image();im.onload=function(){res(im);};im.onerror=function(){URL.revokeObjectURL(u);rej(new Error('img'));};im.src=u;});}
 async function makeThumb(f){ // 표시 최대 180x130px, 선명도를 위해 2배 해상도로 저장
@@ -1012,15 +1013,20 @@ async function exportExcel(){
   var btn=$('btnExport');btn.disabled=true;var oldHtml=btn.innerHTML;btn.querySelector('span').textContent=t('xl.making');
   try{
     var wb=new ExcelJS.Workbook();wb.creator='LINE LOSS';
-    var ws=wb.addWorksheet('등록_조회',{views:[{state:'frozen',ySplit:1}]});
+    var hasAtt=rows.some(function(r){return (r.problemFiles||[]).length||(r.actionFiles||[]).length;}),H=hasAtt?2:1; // 첨부가 있으면 1행에 안내문
+    var ws=wb.addWorksheet('등록_조회',{views:[{state:'frozen',ySplit:H}]});
     ws.columns=XL_W2.map(function(w){return {width:w};});
     var thin={style:'thin',color:{argb:'FFC8CEDC'}},border={top:thin,left:thin,bottom:thin,right:thin};
-    var hr=ws.getRow(1);hr.values=XL_HEAD2;hr.height=24;
+    if(hasAtt){
+      ws.mergeCells(1,1,1,XL_HEAD2.length);var nc=ws.getCell(1,1);nc.value=t('xl.note');
+      nc.font={bold:true,size:10,color:{argb:'FF7A4A00'}};nc.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF4C2'}};nc.alignment={vertical:'middle',horizontal:'left',wrapText:true,indent:1};ws.getRow(1).height=30;
+    }
+    var hr=ws.getRow(H);hr.values=XL_HEAD2;hr.height=24;
     hr.eachCell(function(c){c.font={bold:true,color:{argb:'FFFFFFFF'},size:10};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF16213D'}};c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border=border;});
     var resColor={'완료':'FF1F8A5C','진행중':'FF2D62A8','개선필요':'FFC5402E'};
-    var zipFiles=[],used={},PAD=4,GAP=4,EMU=9525;
+    var zipFiles=[],attList=[],PAD=4,GAP=4,EMU=9525;
     for(var i=0;i<rows.length;i++){
-      var r=rows[i],R=i+2,no=('00'+(i+1)).slice(-3);
+      var r=rows[i],R=i+H+1,no=('00'+(i+1)).slice(-3);
       var vals=[fmtDate(r.date),r.factory?Number(r.factory):'',r.shift?Number(r.shift):'',r.line||'',r.process||'',r.model||'',r.category||'',r.item||'',r.problem||'','',r.action||'','',r.result||'',r.owner||'',fmtDT(r.start),fmtDT(r.end),(r.lossMin!=null&&r.lossMin!=='')?Number(r.lossMin):'',r.owner2||'',r.confirm||''];
       var row=ws.getRow(R);row.values=vals;
       // 첨부 준비
@@ -1028,9 +1034,8 @@ async function exportExcel(){
       for(var kind of ['problem','action']){
         var files=await loadFiles(kind==='problem'?r.problemFiles:r.actionFiles),items=[],tot=0;
         for(var j=0;j<files.length;j++){
-          var f=files[j],base=no+'_'+(kind==='problem'?'문제':'대책')+'_'+safeName(f.name),nm=base,k2=2;
-          while(used[nm.toLowerCase()]){var dot=base.lastIndexOf('.');nm=dot>0?base.slice(0,dot)+'('+k2+')'+base.slice(dot):base+'('+k2+')';k2++;}
-          used[nm.toLowerCase()]=1;zipFiles.push({name:nm,blob:f.blob});
+          var f=files[j],nm=asciiFileName(f.name,no+'_'+(kind==='problem'?'P':'A')+(j+1)); // 예: 001_P1_photo.png (문제=P, 대책=A)
+          zipFiles.push({name:nm,blob:f.blob});attList.push({no:i+1,row:R,r:r,kind:kind,orig:f.name,nm:nm,isImg:/^image\//.test(f.type)});
           var pic=null;
           if(/^image\//.test(f.type)){try{pic=await makeThumb(f);}catch(e){pic=null;}}
           if(!pic)pic=makeFileIcon(f.name);
@@ -1054,13 +1059,31 @@ async function exportExcel(){
           y+=pic.h+GAP;});
       });
     }
-    ws.autoFilter={from:'A1',to:{row:1,column:XL_HEAD2.length}};
-    ws.pageSetup={orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.3,right:0.3,top:0.4,bottom:0.4,header:0.2,footer:0.2}};ws.pageSetup.printTitlesRow='1:1';
+    ws.autoFilter={from:{row:H,column:1},to:{row:H,column:XL_HEAD2.length}};
+    // ---- 첨부파일 목록 시트: 셀 링크(클릭하면 열림) ----
+    if(attList.length){
+      var ws2=wb.addWorksheet('첨부파일 목록',{views:[{state:'frozen',ySplit:2}]});
+      var LH=['No','일자','Line명','공정명','구분','원래 파일명','저장된 파일 (attachments 폴더)','열기','등록_조회 위치'];
+      ws2.columns=[6,10,10,18,8,34,34,10,14].map(function(w){return {width:w};});
+      ws2.mergeCells(1,1,1,LH.length);var n2=ws2.getCell(1,1);n2.value=t('xl.note');n2.font={bold:true,size:10,color:{argb:'FF7A4A00'}};n2.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF4C2'}};n2.alignment={vertical:'middle',wrapText:true,indent:1};ws2.getRow(1).height=30;
+      var h2=ws2.getRow(2);h2.values=LH;h2.height=22;h2.eachCell(function(c){c.font={bold:true,color:{argb:'FFFFFFFF'},size:10};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF16213D'}};c.alignment={horizontal:'center',vertical:'middle'};c.border=border;});
+      attList.forEach(function(a,k){
+        var rr=ws2.getRow(k+3);
+        rr.values=[a.no,fmtDate(a.r.date),a.r.line||'',a.r.process||'',a.kind==='problem'?'문제':'대책',a.orig,a.nm,'',''];
+        rr.getCell(8).value={text:(a.isImg?'🖼 ':'📄 ')+'열기',hyperlink:ATT_FOLDER+'/'+a.nm,tooltip:a.orig};
+        rr.getCell(9).value={formula:'HYPERLINK("#\'등록_조회\'!A'+a.row+'","▶ '+a.row+'행")',result:'▶ '+a.row+'행'};
+        rr.eachCell({includeEmpty:true},function(c,col){if(col>LH.length)return;c.border=border;c.alignment={vertical:'middle',horizontal:(col<=2||col===5||col>=8)?'center':'left'};
+          c.font=(col>=8)?{size:10,color:{argb:'FF2D62A8'},underline:true,bold:col===8}:{size:10,color:{argb:'FF3D4663'}};});
+      });
+      ws2.autoFilter={from:{row:2,column:1},to:{row:2,column:LH.length}};
+    }
+    ws.pageSetup={orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,margins:{left:0.3,right:0.3,top:0.4,bottom:0.4,header:0.2,footer:0.2}};ws.pageSetup.printTitlesRow=H+':'+H;
     var buf=await wb.xlsx.writeBuffer();
     var d=new Date(),stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes());
     var xlName='LINE_LOSS_문제대책_'+stamp+'.xlsx';
     if(zipFiles.length&&typeof JSZip!=='undefined'){
       var zip=new JSZip();zip.file(xlName,buf);var fd=zip.folder(ATT_FOLDER);zipFiles.forEach(function(z){fd.file(z.name,z.blob);});
+      zip.file('README_먼저읽어주세요.txt','\ufeff'+t('xl.readme').replace(/\n/g,'\r\n'));
       var zb=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
       saveBlob(zb,'LINE_LOSS_문제대책_'+stamp+'.zip');
       ask(t('xl.zipTitle'),t('xl.zipMsg',{n:zipFiles.length}),[{label:t('btn.close'),cls:'btn-primary',value:true}]);
@@ -1281,7 +1304,9 @@ $('mBody').addEventListener('dblclick',function(e){var tr=e.target.closest('tr[d
 $('f-line').addEventListener('change',function(){var m=mList('line',true).find(function(x){return x.name===$('f-line').value.trim();});
   if(m&&m.factory&&!formState.factory){formState.factory=String(m.factory);renderPills();}});
 
-Object.assign(I18N.ko,{'xl.making':'엑셀 만드는 중...','xl.libFail':'엑셀 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.','xl.fail':'엑셀 내보내기 실패:','xl.clickOpen':'클릭하면 열림','xl.zipTitle':'엑셀 + 첨부파일 저장 완료','xl.zipMsg':'첨부파일 {n}개가 있어 ZIP 파일로 저장했습니다.\n\n① ZIP 파일을 마우스 오른쪽 클릭 → "압축 풀기"\n② 풀린 폴더 안의 엑셀 파일을 엽니다\n③ 그림은 셀에 바로 보이고, 그림·파일 아이콘을 클릭하면 원본이 열립니다\n\n※ 엑셀 파일과 "첨부파일" 폴더는 항상 같은 위치에 두어야 링크가 열립니다.','db.blocked':'⚠ 이 프로그램의 이전 버전이 다른 탭/창에 열려 있어 저장소를 열 수 없습니다.\n다른 탭의 LINE LOSS 화면을 모두 닫으면 자동으로 이어서 열립니다.','db.newer':'새 버전의 프로그램이 다른 탭에서 열렸습니다. 이 탭은 닫거나 새로고침(F5) 해 주세요.','db.notReady':'저장소가 아직 열리지 않았습니다. 다른 탭의 이전 버전 화면을 닫아 주세요.','master.subtitle':'모델 · 라인 · 직원 정보를 등록하고 관리합니다 (등록 화면의 선택 목록에 사용됩니다)','tab.model':'모델 등록','tab.line':'라인 등록','tab.staff':'직원 등록',
+Object.assign(I18N.ko,{'xl.note':'※ 그림·파일 클릭이 안 되면 → ① ZIP 파일을 마우스 오른쪽 클릭 → [압축 풀기]  ② 풀린 폴더 안의 이 엑셀을 열기  ③ 위쪽에 노란 "제한된 보기" 줄이 있으면 [편집 사용] 클릭.  (엑셀과 attachments 폴더는 항상 같은 폴더에 두세요 / [첨부파일 목록] 시트에서도 열 수 있습니다)',
+ 'xl.readme':'[LINE LOSS 엑셀 + 첨부파일 사용 방법]\n\n1) 이 ZIP 파일을 마우스 오른쪽 클릭 → [압축 풀기(모두 압축 풀기)]\n   ※ ZIP 안에서 엑셀을 바로 더블클릭하면 그림/파일 링크가 열리지 않습니다.\n\n2) 풀린 폴더 안의 엑셀 파일(LINE_LOSS_문제대책_....xlsx)을 엽니다.\n\n3) 엑셀 위쪽에 노란색 "제한된 보기" 줄이 보이면 [편집 사용]을 누릅니다.\n   (인터넷에서 받은 파일은 이 버튼을 눌러야 링크가 동작합니다)\n\n4) 셀 안의 그림이나 파일 아이콘을 클릭하면 원본이 열립니다.\n   [첨부파일 목록] 시트의 "열기"를 눌러도 됩니다.\n   보안 경고 창이 뜨면 [예]를 누르세요.\n\n※ 엑셀 파일과 attachments 폴더는 항상 같은 폴더 안에 함께 두어야 합니다.\n※ 파일 이름: 001_P1 = 1번째 행의 문제 첨부 1, 001_A1 = 대책 첨부 1\n',
+ 'xl.making':'엑셀 만드는 중...','xl.libFail':'엑셀 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.','xl.fail':'엑셀 내보내기 실패:','xl.clickOpen':'클릭하면 열림','xl.zipTitle':'엑셀 + 첨부파일 저장 완료','xl.zipMsg':'첨부파일 {n}개가 있어 ZIP 파일로 저장했습니다.\n\n① ZIP 파일을 마우스 오른쪽 클릭 → [압축 풀기]\n   (ZIP 안에서 엑셀을 바로 열면 그림·파일이 열리지 않습니다)\n② 풀린 폴더 안의 엑셀 파일을 엽니다\n③ 위쪽에 노란 "제한된 보기" 줄이 있으면 [편집 사용]을 누릅니다\n④ 그림·파일 아이콘 또는 [첨부파일 목록] 시트의 "열기"를 클릭하면 원본이 열립니다',
  'm.customer':'고객사','m.note':'비고','m.status':'사용여부','m.active':'사용','m.inactive':'미사용','m.staffName':'이름','m.empNo':'사번','m.dept':'부서','m.position':'직책','m.usage':'사용 건수','m.choose':'선택',
  'btn.add':'등록','btn.update':'수정 저장','m.clear':'입력 초기화','m.newTag':'신규','m.editTag':'수정 중','m.editing':'{name} 정보를 수정합니다',
  'm.formTitle.model':'새 모델 등록','m.formTitle.line':'새 라인 등록','m.formTitle.staff':'새 직원 등록','m.searchPh':'목록에서 검색','m.count':'전체 {n}건 · 사용 {a}건',
